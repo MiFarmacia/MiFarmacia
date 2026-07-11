@@ -34,12 +34,10 @@
         .search-box { width: 100%; display: flex; gap: 10px; background: var(--bg-card); padding: 6px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05); }
         .search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 12px; color: #fff; font-size: 15px; }
         
-        /* ADICIÓN: CATEGORÍAS */
         .category-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
         .pill { padding: 8px 16px; background: rgba(255,255,255,0.05); border: 1px solid transparent; border-radius: 20px; color: var(--text-muted); cursor: pointer; font-size: 13px; white-space: nowrap; transition: 0.3s; }
         .pill.active { background: rgba(0,240,255,0.1); border-color: var(--primary); color: var(--primary); font-weight: 600; box-shadow: 0 0 10px rgba(0,240,255,0.15); }
 
-        /* ADICIÓN: STEPPER DE RASTREO */
         .tracking-stepper { display: flex; justify-content: space-between; align-items: center; margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03); }
         .step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
         .step .bullet { width: 12px; height: 12px; border-radius: 50%; background: #374151; transition: 0.3s; }
@@ -80,6 +78,15 @@
 
     <header>
         <div class="logo">🧬 Mi<span>Farmacia</span></div>
+        
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 14px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.1);">
+            <label style="font-size: 12px; font-weight: 700; color: var(--primary);">📍 Sucursal:</label>
+            <select id="globalSucursalSelector" onchange="cambiarSucursalGlobal()" style="background: transparent; border: none; color: #fff; font-weight: 700; outline: none; cursor: pointer;">
+                <option value="Sur" style="background:#0b0f19;">Sur-16</option>
+                <option value="Norte" style="background:#0b0f19;">Norte</option>
+            </select>
+        </div>
+
         <div style="display:flex; gap:12px; align-items:center;">
             <span id="lblSaludo" style="font-size:14px; color:var(--text-muted);">Invitado</span>
             <button id="btnPerfilToggle" class="btn" style="background:rgba(255,255,255,0.05); color:white; display:none;" onclick="togglePanelPerfil()">⚙️ Mi Perfil</button>
@@ -120,14 +127,13 @@
                 <button class="btn btn-success" onclick="guardarDatosPerfilServidor()">💾 Guardar Preferencias en Cuenta</button>
             </div>
 
-            <div class="grid-products" id="catalogGrid">
-                </div>
+            <div class="grid-products" id="catalogGrid"></div>
         </section>
 
         <section class="side-panel">
             
             <div class="panel-box">
-                <div class="panel-title">📦 Seguimiento Técnico en Ruta</div>
+                <div class="panel-title">📦 Tracking en Ruta de Envíos</div>
                 <div class="input-group" style="display:flex; gap:8px; margin-bottom:0;">
                     <input type="text" id="txtRastreoFolio" placeholder="Ingresa el Folio (FH-XXXXXX)">
                     <button class="btn" onclick="consultarRastreoInterno()">Rastrear</button>
@@ -141,14 +147,14 @@
                 </div>
 
                 <div id="panelStatusScreen" style="margin-top:15px; font-size:14px; text-align:center; color:var(--text-muted);">
-                    Coloca tu número de folio para iniciar el mapeo en tiempo real.
+                    Coloca tu número de folio para iniciar el rastreo.
                 </div>
             </div>
 
             <div class="panel-box">
                 <div class="panel-title">🛒 Carrito de Compras</div>
-                <div id="cartItemsContainer" style="max-height:240px; overflow-y:auto; margin-bottom:15px;">
-                    </div>
+                <div id="sucursalCarritoBadge" style="font-size:12px; color:var(--primary); font-weight:700; margin-top:-10px; margin-bottom:10px;">Comprando en: Sucursal Sur</div>
+                <div id="cartItemsContainer" style="max-height:240px; overflow-y:auto; margin-bottom:15px;"></div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-weight:700;">
                     <span>Total General:</span>
                     <span id="lblTotalCart" style="color:var(--primary); font-size:18px;">$0.00</span>
@@ -226,17 +232,40 @@
     </div>
 
     <script>
-        const URL_BACKEND = "https://script.google.com/macros/s/AKfycbwj4HpBp8lCzHdHIgYeplAuUNJbpBzIcyYdgkjV2Y5snQJ7jsCiNQCYXtuDw1ijCKvw/exec"; // REEMPLAZAR CON TU LINK ORIGINAL
+        // DOS LINKS GOOGLE SHEETS DIFERENTES (APPS SCRIPTS)
+        const URL_BACKEND_SUR = "https://script.google.com/macros/s/AKfycbwj4HpBp8lCzHdHIgYeplAuUNJbpBzIcyYdgkjV2Y5snQJ7jsCiNQCYXtuDw1ijCKvw/exec"; 
+        const URL_BACKEND_NORTE = "https://script.google.com/macros/s/AKfycbyNQFiZh-hWpzq8qtDaNkjMnH4S5ENJq2fKqd8xCt2_CzgkxPs9OqJnHPa9am3BYTJc/exec"; 
+
+        // Esta variable se actualizará automáticamente según la sucursal activa
+        let URL_BACKEND = URL_BACKEND_SUR;
 
         let dbProductos = [];
         let carrito = {};
         let sesionUsuario = null;
         let filtroCategoriaActual = "Todos";
+        let sucursalSeleccionada = "Sur";
 
         window.onload = async () => {
             await descargarCatalogo();
             verificarCacheSesion();
         };
+
+        // Cambiar dinámicamente la URL Base y la sucursal al seleccionar otra opción
+        async function cambiarSucursalGlobal() {
+            sucursalSeleccionada = document.getElementById("globalSucursalSelector").value;
+            document.getElementById("sucursalCarritoBadge").innerText = `Comprando en: Sucursal ${sucursalSeleccionada}`;
+            
+            // LÓGICA DE INTERCAMBIO DE LINKS
+            if(sucursalSeleccionada === "Norte") {
+                URL_BACKEND = URL_BACKEND_NORTE;
+            } else {
+                URL_BACKEND = URL_BACKEND_SUR;
+            }
+
+            carrito = {};
+            actualizarGraficosCarrito();
+            await descargarCatalogo();
+        }
 
         async function descargarCatalogo() {
             try {
@@ -250,7 +279,7 @@
             const grid = document.getElementById("catalogGrid");
             grid.innerHTML = "";
             if(listado.length === 0) {
-                grid.innerHTML = `<p style="color:var(--text-muted)">No se encontraron medicamentos con los criterios dados.</p>`;
+                grid.innerHTML = `<p style="color:var(--text-muted)">No se encontraron medicamentos en Sucursal ${sucursalSeleccionada}.</p>`;
                 return;
             }
             listado.forEach(p => {
@@ -275,7 +304,6 @@
             });
         }
 
-        /* ADICIÓN: FUNCIÓN DE FILTRADO CRUZADO COMPLETO (BUSCADOR + CATEGORÍA) */
         function filtrarCatalogoCompleto() {
             const txt = document.getElementById("txtBuscar").value.toLowerCase().trim();
             let resultado = dbProductos;
@@ -289,7 +317,6 @@
             renderizarPantallaCatalogo(resultado);
         }
 
-        /* ADICIÓN: FILTRADO POR PÍLDORA */
         function filtrarPorCategoria(cat, elemento) {
             document.querySelectorAll(".pill").forEach(b => b.classList.remove("active"));
             elemento.classList.add("active");
@@ -338,7 +365,6 @@
             document.getElementById("lblTotalCart").innerText = `$${total.toFixed(2)}`;
         }
 
-        /* ADICIÓN: SEGUIMIENTO INTEGRADO CON STEPPER VISUAL */
         async function consultarRastreoInterno() {
             const folio = document.getElementById("txtRastreoFolio").value.trim();
             const pantalla = document.getElementById("panelStatusScreen");
@@ -357,13 +383,12 @@
                     stepper.style.display = "flex";
                     document.querySelectorAll(".step").forEach(s => s.classList.remove("active"));
                     
-                    // Iluminación secuencial de la barra neón
                     if(p.estado === "Pendiente") document.getElementById("st-pendiente").classList.add("active");
                     else if(p.estado === "En Almacén") { ["st-pendiente","st-almacen"].forEach(id=>document.getElementById(id).classList.add("active")); }
                     else if(p.estado === "En Ruta") { ["st-pendiente","st-almacen","st-ruta"].forEach(id=>document.getElementById(id).classList.add("active")); }
                     else if(p.estado === "Entregado") { ["st-pendiente","st-almacen","st-ruta","st-entregado"].forEach(id=>document.getElementById(id).classList.add("active")); }
 
-                    let repartidorDato = (p.repartidor === "Sin asignar") ? 
+                    let repartidorDato = (p.repartidor === "Sin asignar" || !p.repartidor) ? 
                         `<span style="color:var(--text-muted)">Asignando operador en almacén...</span>` : 
                         `<div style="margin-top:8px; padding:10px; background:rgba(0,240,255,0.05); border-radius:6px; border:1px solid var(--primary);">
                             <b style="color:var(--primary);">🛵 Operador: ${p.repartidor}</b>
@@ -372,6 +397,7 @@
 
                     pantalla.innerHTML = `
                         <div style="text-align:left; margin-top:10px;">
+                            <p><b>Sucursal:</b> ${sucursalSeleccionada}</p>
                             <p><b>Paciente:</b> ${p.cliente}</p>
                             <p><b>Dirección:</b> ${p.domicilio}</p>
                             <p><b>Estado:</b> <span style="color:var(--primary);">${p.estado}</span></p>
@@ -380,7 +406,7 @@
                         </div>
                     `;
                 } else {
-                    pantalla.innerHTML = `<span style="color:var(--danger)">Folio incorrecto o no registrado.</span>`;
+                    pantalla.innerHTML = `<span style="color:var(--danger)">Folio incorrecto o no registrado en la Sucursal ${sucursalSeleccionada}.</span>`;
                 }
             } catch(e) { pantalla.innerHTML = "Error de sincronización."; }
         }
@@ -401,7 +427,7 @@
                 let res = await fetch(url);
                 let d = await res.json();
                 if(d.ok) {
-                    alert(d.msg + "\nFOLIO: " + d.folio);
+                    alert(d.msg + "\nFOLIO: " + d.folio + "\nSUCURSAL: " + sucursalSeleccionada);
                     document.getElementById("txtRastreoFolio").value = d.folio;
                     construirGraficoTicket(d.folio, nom, dom, totalGeneral);
                     carrito = {};
@@ -418,7 +444,7 @@
             
             let html = `
                 <div style="text-align:center; font-weight:800; font-size:16px;">MI FARMACIA</div>
-                <div style="text-align:center; font-size:11px; margin-bottom:10px;">COMPROBANTE DE COMPRA DIGITAL</div>
+                <div style="text-align:center; font-size:11px; margin-bottom:10px;">COMPROBANTE DIGITAL - SUCURSAL ${sucursalSeleccionada.toUpperCase()}</div>
                 <hr style="border:1px dashed #000; margin:6px 0;">
                 <p><b>FOLIO:</b> ${folio}</p>
                 <p><b>PACIENTE:</b> ${nom}</p>
@@ -443,7 +469,6 @@
             });
         }
 
-        /* ADICIÓN: PANELES DE GESTIÓN DE PERFIL DEL CLIENTE */
         function togglePanelPerfil() {
             const p = document.getElementById("panelPerfilCliente");
             p.style.display = (p.style.display === "none") ? "block" : "none";
@@ -477,7 +502,6 @@
             }
         }
 
-        // --- AUTENTICACIÓN ---
         function abrirModalAuth() {
             if(sesionUsuario) {
                 localStorage.removeItem("farma_user");
