@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
     <title>MiFarmacia - TU FARMACIA DIGITAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Manifest de la PWA incrustado directamente aquí (sin archivo aparte y sin íconos) -->
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22MiFarmacia%20-%20Tu%20Farmacia%20Digital%22%2C%20%22short_name%22%3A%20%22MiFarmacia%22%2C%20%22start_url%22%3A%20%22.%22%2C%20%22scope%22%3A%20%22.%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22orientation%22%3A%20%22portrait%22%2C%20%22background_color%22%3A%20%22%23030712%22%2C%20%22theme_color%22%3A%20%22%2302f90a%22%7D">
+    <meta name="theme-color" content="#02f90a">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -194,6 +197,49 @@
             color: var(--text-muted);
         }
 
+        /* ===== BUSCADOR: SUGERENCIAS / AUTOCOMPLETADO ===== */
+        .search-wrapper {
+            position: relative;
+        }
+
+        .search-suggestions {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #0b1120;
+            border: 1px solid rgba(2, 249, 10, 0.3);
+            border-radius: 10px;
+            z-index: 60;
+            max-height: 240px;
+            overflow-y: auto;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .suggestion-item {
+            padding: 10px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:active {
+            background: rgba(2, 249, 10, 0.1);
+        }
+
+        .suggestion-item small {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
         /* ===== CATEGORY PILLS ===== */
         .category-pills { 
             display: flex; 
@@ -370,6 +416,37 @@
 
         .card-stock.low {
             color: var(--danger);
+        }
+
+        /* ===== FAVORITOS ===== */
+        .card {
+            position: relative;
+        }
+
+        .fav-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 5;
+            transition: transform 0.15s;
+        }
+
+        .fav-btn:active {
+            transform: scale(0.9);
+        }
+
+        .fav-btn.active {
+            background: rgba(255, 23, 68, 0.15);
         }
 
         /* ===== BUTTONS ===== */
@@ -646,6 +723,53 @@
             background: var(--primary);
         }
 
+        /* ===== BOTÓN FLOTANTE WHATSAPP ===== */
+        .whatsapp-float {
+            position: fixed;
+            bottom: 96px;
+            right: 16px;
+            background: #25D366;
+            color: white;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            text-decoration: none;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            z-index: 300;
+        }
+
+        .whatsapp-float:active {
+            transform: scale(0.94);
+        }
+
+        /* ===== HISTORIAL DE PEDIDOS ===== */
+        .historial-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .historial-item:last-child {
+            border-bottom: none;
+        }
+
+        .historial-item-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .historial-item-productos {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin: 3px 0 6px 0;
+            line-height: 1.3;
+        }
+
         /* ===== ACCESSIBILITY ===== */
         @media (prefers-reduced-motion: reduce) {
             * {
@@ -726,6 +850,7 @@
 
         <div class="header-right">
             <span id="lblSaludo">Invitado</span>
+            <button id="btnPedidos" class="btn" style="background:rgba(255,255,255,0.05); color:white; display:none;" onclick="abrirSidePanel()">📦</button>
             <button id="btnPerfilToggle" class="btn" style="background:rgba(255,255,255,0.05); color:white; display:none;" onclick="togglePanelPerfil()">⚙️</button>
             <button id="btnCarrito" class="btn" style="display:none;" onclick="abrirCarrito()">
                 🛒
@@ -738,8 +863,11 @@
     <main class="main-container">
         
         <section class="catalog-section">
-            <div class="search-box">
-                <input type="text" id="txtBuscar" placeholder="🔍 Buscar medicamento" oninput="filtrarCatalogoCompleto()">
+            <div class="search-wrapper">
+                <div class="search-box">
+                    <input type="text" id="txtBuscar" placeholder="🔍 Buscar medicamento" autocomplete="off" oninput="manejarBusquedaInput()" onfocus="manejarBusquedaInput()">
+                </div>
+                <div id="sugerenciasBusqueda" class="search-suggestions"></div>
             </div>
             
             <div class="category-pills">
@@ -748,6 +876,7 @@
                 <button class="pill" onclick="filtrarPorCategoria('Antibiótico', this)">Antibiótico</button>
                 <button class="pill" onclick="filtrarPorCategoria('Suplemento', this)">Suplemento</button>
                 <button class="pill" onclick="filtrarPorCategoria('Cuidado Personal', this)">Cuidado</button>
+                <button class="pill" onclick="filtrarPorCategoria('Favoritos', this)">❤️ Favoritos</button>
             </div>
 
             <div id="panelPerfilCliente" class="panel-box" style="display:none;">
@@ -791,6 +920,14 @@
 
                 <div id="panelStatusScreen" style="margin-top:10px; font-size:12px; text-align:center; color:var(--text-muted);">
                     Ingresa tu folio para rastrear.
+                </div>
+            </div>
+
+            <div class="panel-box">
+                <div class="panel-title">📜 Mis Pedidos</div>
+                <button class="btn full-width" style="margin-bottom:10px; justify-content:center;" onclick="cargarHistorialPedidos()">🔄 Actualizar Historial</button>
+                <div id="historialPedidosContainer" style="font-size:12px; color:var(--text-muted);">
+                    Inicia sesión y presiona actualizar para ver tus pedidos de esta sucursal.
                 </div>
             </div>
 
@@ -881,6 +1018,9 @@
         </div>
     </div>
 
+    <!-- BOTÓN FLOTANTE DE WHATSAPP: reemplaza el número 525500000000 por el de tu farmacia -->
+    <a id="btnWhatsApp" class="whatsapp-float" href="https://wa.me/525500000000?text=Hola%2C%20tengo%20una%20duda%20sobre%20mi%20pedido%20en%20MiFarmacia" target="_blank" rel="noopener" title="Chatea con soporte por WhatsApp">💬</a>
+
     <script>
         // DOS LINKS GOOGLE SHEETS DIFERENTES (APPS SCRIPTS)
         const URL_BACKEND_SUR = "https://script.google.com/macros/s/AKfycbwj4HpBp8lCzHdHIgYeplAuUNJbpBzIcyYdgkjV2Y5snQJ7jsCiNQCYXtuDw1ijCKvw/exec"; 
@@ -897,7 +1037,77 @@
         window.onload = async () => {
             await descargarCatalogo();
             verificarCacheSesion();
+            document.addEventListener("click", (e) => {
+                const wrapper = document.querySelector(".search-wrapper");
+                if(wrapper && !wrapper.contains(e.target)) {
+                    document.getElementById("sugerenciasBusqueda").style.display = "none";
+                }
+            });
+            if("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                    // El Service Worker va incrustado en este mismo archivo (sin sw.js aparte):
+                    // se arma el código como texto y se registra desde un Blob URL generado en memoria.
+                    // Nota: algunos navegadores bloquean por seguridad el registro de Service Workers
+                    // desde blob:, así que el cacheo offline puede no activarse en todos los casos;
+                    // el resto de la app (catálogo, carrito, pedidos) funciona igual sin él.
+                    const codigoSW = `
+                        const CACHE_NAME = "mifarmacia-v1";
+                        self.addEventListener("install", (e) => { self.skipWaiting(); });
+                        self.addEventListener("activate", (e) => { self.clients.claim(); });
+                        self.addEventListener("fetch", (event) => {
+                            const url = event.request.url;
+                            if(event.request.method !== "GET" || url.includes("script.google.com")) return;
+                            event.respondWith(
+                                caches.open(CACHE_NAME).then((cache) =>
+                                    cache.match(event.request).then((cached) => {
+                                        if(cached) return cached;
+                                        return fetch(event.request).then((resp) => {
+                                            cache.put(event.request, resp.clone());
+                                            return resp;
+                                        }).catch(() => cached);
+                                    })
+                                )
+                            );
+                        });
+                    `;
+                    const blobSW = new Blob([codigoSW], { type: "application/javascript" });
+                    navigator.serviceWorker.register(URL.createObjectURL(blobSW))
+                        .catch(e => console.log("Service Worker no disponible en este navegador:", e));
+                });
+            }
         };
+
+        function obtenerListaFavoritos() {
+            if(!sesionUsuario || !sesionUsuario.favoritos) return [];
+            return sesionUsuario.favoritos.split(",").map(c => c.trim()).filter(c => c);
+        }
+
+        function esFavorito(codigo) {
+            return obtenerListaFavoritos().includes(codigo);
+        }
+
+        async function alternarFavorito(codigo, event) {
+            event.stopPropagation();
+            if(!sesionUsuario) { alert("Inicia sesión para guardar favoritos."); return; }
+            let favoritos = obtenerListaFavoritos();
+            if(favoritos.includes(codigo)) {
+                favoritos = favoritos.filter(c => c !== codigo);
+            } else {
+                favoritos.push(codigo);
+            }
+            sesionUsuario.favoritos = favoritos.join(",");
+            localStorage.setItem("farma_user", JSON.stringify(sesionUsuario));
+            document.getElementById("txtPrefFavoritos").value = sesionUsuario.favoritos;
+
+            // Refleja el cambio visualmente de inmediato
+            filtrarCatalogoCompleto();
+
+            // Sincroniza en segundo plano con el backend, reutilizando el perfil ya guardado
+            try {
+                let url = `${URL_BACKEND}?action=actualizarPerfil&correo=${encodeURIComponent(sesionUsuario.correo)}&telefono=${encodeURIComponent(sesionUsuario.telefono || "")}&direccion=${encodeURIComponent(sesionUsuario.direccion || "")}&favoritos=${encodeURIComponent(sesionUsuario.favoritos)}`;
+                await fetch(url);
+            } catch(e) { console.error("No se pudo sincronizar favoritos con el servidor", e); }
+        }
 
         async function cambiarSucursalGlobal() {
             sucursalSeleccionada = document.getElementById("globalSucursalSelector").value;
@@ -930,8 +1140,12 @@
                 return;
             }
             listado.forEach(p => {
+                const favActivo = esFavorito(p.codigo);
                 grid.innerHTML += `
                     <div class="card">
+                        <button class="fav-btn ${favActivo ? 'active' : ''}" onclick="alternarFavorito('${p.codigo}', event)" title="${favActivo ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
+                            ${favActivo ? '❤️' : '🤍'}
+                        </button>
                         <img src="${p.imagen || 'https://via.placeholder.com/150'}" onerror="this.src='https://via.placeholder.com/150'" alt="${p.nombre}">
                         <div>
                             <h3>${p.nombre}</h3>
@@ -955,13 +1169,47 @@
             const txt = document.getElementById("txtBuscar").value.toLowerCase().trim();
             let resultado = dbProductos;
 
-            if(filtroCategoriaActual !== "Todos") {
+            if(filtroCategoriaActual === "Favoritos") {
+                const favoritos = obtenerListaFavoritos();
+                resultado = resultado.filter(p => favoritos.includes(p.codigo));
+            } else if(filtroCategoriaActual !== "Todos") {
                 resultado = resultado.filter(p => p.descripcion && p.descripcion.toLowerCase().includes(filtroCategoriaActual.toLowerCase()));
             }
             if(txt !== "") {
                 resultado = resultado.filter(p => p.nombre.toLowerCase().includes(txt) || p.codigo.toLowerCase().includes(txt) || (p.descripcion && p.descripcion.toLowerCase().includes(txt)));
             }
             renderizarPantallaCatalogo(resultado);
+        }
+
+        function manejarBusquedaInput() {
+            filtrarCatalogoCompleto();
+            mostrarSugerenciasBusqueda();
+        }
+
+        function mostrarSugerenciasBusqueda() {
+            const txt = document.getElementById("txtBuscar").value.toLowerCase().trim();
+            const cont = document.getElementById("sugerenciasBusqueda");
+            if(!txt) { cont.style.display = "none"; cont.innerHTML = ""; return; }
+
+            const coincidencias = dbProductos.filter(p =>
+                p.nombre.toLowerCase().includes(txt) || (p.codigo && p.codigo.toLowerCase().includes(txt))
+            ).slice(0, 6);
+
+            if(coincidencias.length === 0) { cont.style.display = "none"; cont.innerHTML = ""; return; }
+
+            cont.innerHTML = coincidencias.map(p => `
+                <div class="suggestion-item" onclick="seleccionarSugerencia('${p.nombre.replace(/'/g, "\\'")}')">
+                    <span>${p.nombre}</span>
+                    <small>$${Number(p.precio).toFixed(2)}</small>
+                </div>
+            `).join("");
+            cont.style.display = "block";
+        }
+
+        function seleccionarSugerencia(nombre) {
+            document.getElementById("txtBuscar").value = nombre;
+            document.getElementById("sugerenciasBusqueda").style.display = "none";
+            filtrarCatalogoCompleto();
         }
 
         function filtrarPorCategoria(cat, elemento) {
@@ -973,7 +1221,17 @@
 
         function meterAlCarrito(codigo, nombre, precio) {
             if(!sesionUsuario) { alert("Inicia sesión para poder estructurar tu carrito."); return; }
+
+            const producto = dbProductos.find(p => p.codigo === codigo);
+            const stockDisponible = producto ? Number(producto.stock) : Infinity;
+
+            if(stockDisponible <= 0) { alert(`"${nombre}" ya no tiene existencias disponibles.`); return; }
+
             if(carrito[codigo]) {
+                if(carrito[codigo].qty >= stockDisponible) {
+                    alert(`Solo hay ${stockDisponible} unidades disponibles de "${nombre}".`);
+                    return;
+                }
                 carrito[codigo].qty++;
             } else {
                 carrito[codigo] = { code: codigo, name: nombre, price: precio, qty: 1 };
@@ -983,6 +1241,16 @@
 
         function modificarCantidadCarrito(codigo, cambio) {
             if(!carrito[codigo]) return;
+
+            if(cambio > 0) {
+                const producto = dbProductos.find(p => p.codigo === codigo);
+                const stockDisponible = producto ? Number(producto.stock) : Infinity;
+                if(carrito[codigo].qty >= stockDisponible) {
+                    alert(`Solo hay ${stockDisponible} unidades disponibles de "${carrito[codigo].name}".`);
+                    return;
+                }
+            }
+
             carrito[codigo].qty += cambio;
             if(carrito[codigo].qty <= 0) delete carrito[codigo];
             actualizarGraficosCarrito();
@@ -1063,10 +1331,110 @@
                             ${repartidorDato}
                         </div>
                     `;
+
+                    if(p.estado !== "Entregado") {
+                        iniciarMonitoreoPedido(p.folio);
+                    }
                 } else {
                     pantalla.innerHTML = `<span style="color:var(--danger)">Folio incorrecto o no registrado en la Sucursal ${sucursalSeleccionada}.</span>`;
                 }
             } catch(e) { pantalla.innerHTML = "Error de sincronización."; }
+        }
+
+        // ===== NOTIFICACIONES DE CAMBIO DE ESTADO DEL PEDIDO =====
+        // Nota: esto usa la Notification API del navegador mientras la página está abierta.
+        // Para notificar por WhatsApp/correo/SMS aunque el cliente no tenga la app abierta,
+        // el envío tiene que dispararse desde el backend (Apps Script) cuando se actualiza el
+        // estado en la hoja de cálculo -- esa parte no está incluida porque no tengo acceso
+        // al código del backend, solo a la URL del endpoint.
+        let monitorPedidoInterval = null;
+        let folioMonitoreado = null;
+
+        function iniciarMonitoreoPedido(folio) {
+            if("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+            if(folioMonitoreado === folio && monitorPedidoInterval) return;
+            if(monitorPedidoInterval) clearInterval(monitorPedidoInterval);
+            folioMonitoreado = folio;
+            monitorPedidoInterval = setInterval(() => verificarCambioEstadoPedido(folio), 45000);
+        }
+
+        async function verificarCambioEstadoPedido(folio) {
+            try {
+                let res = await fetch(`${URL_BACKEND}?action=pedidos`);
+                let pedidos = await res.json();
+                let p = pedidos.find(item => item.folio.toLowerCase() === folio.toLowerCase());
+                if(!p) return;
+
+                const claveEstado = `farma_estado_${folio}`;
+                const estadoPrevio = localStorage.getItem(claveEstado);
+                if(estadoPrevio && estadoPrevio !== p.estado) {
+                    notificarCambioEstado(folio, p.estado);
+                }
+                localStorage.setItem(claveEstado, p.estado);
+
+                const folioEnPantalla = document.getElementById("txtRastreoFolio").value.trim();
+                if(folioEnPantalla.toLowerCase() === folio.toLowerCase()) {
+                    consultarRastreoInterno();
+                }
+
+                if(p.estado === "Entregado" && monitorPedidoInterval) {
+                    clearInterval(monitorPedidoInterval);
+                    monitorPedidoInterval = null;
+                    folioMonitoreado = null;
+                }
+            } catch(e) { console.error("Error verificando estado del pedido", e); }
+        }
+
+        function notificarCambioEstado(folio, nuevoEstado) {
+            const mensaje = `Tu pedido ${folio} ahora está: ${nuevoEstado}`;
+            if("Notification" in window && Notification.permission === "granted") {
+                new Notification("MiFarmacia - Actualización de pedido", { body: mensaje });
+            } else {
+                alert(mensaje);
+            }
+        }
+
+        // ===== HISTORIAL DE PEDIDOS DEL CLIENTE =====
+        async function cargarHistorialPedidos() {
+            const cont = document.getElementById("historialPedidosContainer");
+            if(!sesionUsuario) { cont.innerHTML = "Debes iniciar sesión para ver tu historial."; return; }
+            cont.innerHTML = "Cargando pedidos...";
+            try {
+                let res = await fetch(`${URL_BACKEND}?action=pedidos`);
+                let pedidos = await res.json();
+
+                // Filtra por correo si el backend lo devuelve; si no, cae de respaldo al nombre del cliente
+                let propios = pedidos.filter(p =>
+                    (p.correo && p.correo.toLowerCase() === sesionUsuario.correo.toLowerCase()) ||
+                    (!p.correo && p.cliente && p.cliente.toLowerCase() === sesionUsuario.nombre.toLowerCase())
+                );
+
+                if(propios.length === 0) {
+                    cont.innerHTML = `Aún no tienes pedidos registrados en Sucursal ${sucursalSeleccionada}.`;
+                    return;
+                }
+
+                propios.sort((a, b) => (b.folio || "").localeCompare(a.folio || ""));
+
+                cont.innerHTML = propios.map(p => `
+                    <div class="historial-item">
+                        <div class="historial-item-top">
+                            <b style="color:var(--text-main);">${p.folio}</b>
+                            <span style="color:var(--primary); font-weight:700; font-size:11px;">${p.estado}</span>
+                        </div>
+                        <div class="historial-item-productos">${p.productos || ''}</div>
+                        <button class="btn" style="padding:4px 8px; font-size:10px; min-height:24px;" onclick="verEsteFolio('${p.folio}')">Ver rastreo</button>
+                    </div>
+                `).join("");
+            } catch(e) { cont.innerHTML = "Error al cargar tu historial."; }
+        }
+
+        function verEsteFolio(folio) {
+            document.getElementById("txtRastreoFolio").value = folio;
+            abrirSidePanel();
+            consultarRastreoInterno();
         }
 
         async function procesarOrdenCompraFinal() {
@@ -1075,6 +1443,26 @@
             const pago = document.getElementById("orderMetodoPago").value;
             
             if(!nom || !dom) { alert("Completa los datos de despacho urgente."); return; }
+            if(Object.keys(carrito).length === 0) { alert("Tu carrito está vacío."); return; }
+
+            // Revalidación de stock justo antes de confirmar (reduce el riesgo de comprar algo ya agotado,
+            // aunque la protección definitiva contra sobreventa debe vivir en el backend/Apps Script,
+            // descontando el stock de forma atómica al registrar el pedido).
+            try {
+                let resStock = await fetch(`${URL_BACKEND}?action=productos`);
+                let catalogoActual = await resStock.json();
+                for(const item of Object.values(carrito)) {
+                    const actual = catalogoActual.find(p => p.codigo === item.code);
+                    if(!actual || Number(actual.stock) < item.qty) {
+                        alert(`"${item.name}" ya no tiene existencias suficientes (disponibles: ${actual ? actual.stock : 0}). Ajusta tu carrito.`);
+                        dbProductos = catalogoActual;
+                        filtrarCatalogoCompleto();
+                        actualizarGraficosCarrito();
+                        return;
+                    }
+                }
+                dbProductos = catalogoActual;
+            } catch(e) { console.error("No se pudo revalidar el stock, se continúa con el pedido.", e); }
             
             let arrProdStr = Object.values(carrito).map(x => `${x.name} (${x.qty}pz)`).join(", ");
             let totalGeneral = Object.values(carrito).reduce((a, b) => a + (b.price * b.qty), 0);
@@ -1091,6 +1479,8 @@
                     carrito = {};
                     actualizarGraficosCarrito();
                     consultarRastreoInterno();
+                    iniciarMonitoreoPedido(d.folio);
+                    await descargarCatalogo(); // refresca el stock visible tras la compra
                 }
             } catch(e) { alert("Error al procesar la orden."); }
         }
@@ -1146,6 +1536,9 @@
 
         function abrirSidePanel() {
             document.getElementById("sidePanel").classList.add("active");
+            if("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
         }
 
         async function guardarDatosPerfilServidor() {
@@ -1186,7 +1579,9 @@
                 document.getElementById("checkoutForm").style.display = "none";
                 document.getElementById("checkoutAnonMessage").style.display = "block";
                 document.getElementById("btnPerfilToggle").style.display = "none";
+                document.getElementById("btnPedidos").style.display = "none";
                 document.getElementById("panelPerfilCliente").style.display = "none";
+                document.getElementById("historialPedidosContainer").innerHTML = "Inicia sesión y presiona actualizar para ver tus pedidos de esta sucursal.";
                 carrito = {};
                 actualizarGraficosCarrito();
                 return;
@@ -1238,6 +1633,7 @@
             document.getElementById("checkoutForm").style.display = "block";
             document.getElementById("checkoutAnonMessage").style.display = "none";
             document.getElementById("btnPerfilToggle").style.display = "block";
+            document.getElementById("btnPedidos").style.display = "block";
             autoacomodarCamposPerfil();
         }
 
