@@ -6,6 +6,7 @@
     <title>MiFarmacia - NEO HEALTH APP</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         :root {
@@ -1279,7 +1280,7 @@
 
     <!-- BANNER PREVENTIVO -->
     <div id="bannerPreventivo" class="banner-preventivo" style="display:none;">
-        ⚠️ Recuerda que cerramos pedidos a las 7:00 PM. <span id="txtTiempoRestante"></span>
+        <span id="txtBannerHorario">⚠️ Recuerda que cerramos pedidos a las 7:00 PM.</span> <span id="txtTiempoRestante"></span>
     </div>
 
     <!-- HEADER DOCK -->
@@ -1289,8 +1290,8 @@
         <div class="header-center">
             <label>📍</label>
             <select id="globalSucursalSelector" onchange="cambiarSucursalGlobal()">
-                <option value="Sur">Sur-16</option>
-                <option value="Norte">Norte</option>
+                <option value="MF16">MF16</option>
+                <option value="MF253">MF253</option>
             </select>
         </div>
 
@@ -1384,12 +1385,9 @@
             </div>
             
             <!-- PILLS DE CATEGORÍA FLOTANTES -->
-            <div class="category-pills">
+            <!-- Las categorías se generan solas con las que existan en el catálogo (tabla productos, columna categoria) -->
+            <div class="category-pills" id="categoryPills">
                 <button class="pill active" onclick="filtrarPorCategoria('Todos', this)">🌿 Todos</button>
-                <button class="pill" onclick="filtrarPorCategoria('Analgésico', this)">💊 Analgésico</button>
-                <button class="pill" onclick="filtrarPorCategoria('Antibiótico', this)">🛡️ Antibiótico</button>
-                <button class="pill" onclick="filtrarPorCategoria('Suplemento', this)">✨ Suplemento</button>
-                <button class="pill" onclick="filtrarPorCategoria('Cuidado Personal', this)">🧼 Cuidado</button>
                 <button class="pill" onclick="filtrarPorCategoria('Favoritos', this)">❤️ Favoritos</button>
             </div>
 
@@ -1516,7 +1514,7 @@
                 🛒 Carrito de Compras
                 <button class="panel-close-btn" onclick="cerrarCarrito()">✕</button>
             </div>
-            <div id="sucursalCarritoBadge" style="font-size:12px; color:var(--primary-light); font-weight:700; margin-bottom:14px; background: rgba(74, 222, 128, 0.15); padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(74, 222, 128, 0.3);">Comprando en: Sucursal Sur</div>
+            <div id="sucursalCarritoBadge" style="font-size:12px; color:var(--primary-light); font-weight:700; margin-bottom:14px; background: rgba(74, 222, 128, 0.15); padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(74, 222, 128, 0.3);">Comprando en: Sucursal MF16</div>
             <div id="cartItemsContainer"></div>
 
             <!-- CUPONES -->
@@ -1615,6 +1613,17 @@
                 <button id="btnEjecutarRegistro" class="btn btn-success full-width" style="margin-bottom:14px; justify-content:center;" onclick="ejecutarRegistroBase()">Crear Mi Cuenta</button>
                 <p style="font-size:12px; text-align:center; color:var(--text-muted);">¿Ya tienes cuenta? <a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); conmutarAuthView(false)">Inicia sesión</a></p>
             </div>
+
+            <!-- VERIFICACIÓN DE CORREO (código de 6 dígitos) -->
+            <div id="verifyFields" style="display:none; margin-top: 10px;">
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">Enviamos un código de 6 dígitos a <b id="lblCorreoVerificacion" style="color:var(--text-main);"></b>. Escríbelo aquí para activar tu cuenta.</p>
+                <div class="input-group">
+                    <label>Código de verificación</label>
+                    <input type="text" id="verifyCodigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="letter-spacing:6px; text-align:center; font-size:20px; font-weight:800;" onkeydown="if(event.key==='Enter') ejecutarVerificacionCodigo()">
+                </div>
+                <button id="btnVerificarCodigo" class="btn btn-success full-width" style="margin-bottom:14px; justify-content:center;" onclick="ejecutarVerificacionCodigo()">Verificar código</button>
+                <p style="font-size:12px; text-align:center; color:var(--text-muted);">¿No te llegó? <a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); reenviarCodigoVerificacion()">Reenviar código</a> · <a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); conmutarAuthView(false)">Volver</a></p>
+            </div>
         </div>
     </div>
 
@@ -1650,42 +1659,116 @@
     <a id="btnWhatsApp" class="whatsapp-float" href="https://wa.me/525572400294?text=Hola%2C%20tengo%20una%20duda%20sobre%20mi%20pedido%20en%20MiFarmacia" target="_blank" rel="noopener" title="Chatea con soporte">💬</a>
 
     <script>
-        let SCRIPT_URL = localStorage.getItem("backend_url") || 'https://script.google.com/macros/s/AKfycbyLXqTjgY_fnUKTEKbaBH9w-h880eZoAqQGoTPa6q_PSUJ53SFq21aFsm7MdZv3E4lLAA/exec';
+        /* ================================================================
+           CONEXIÓN A SUPABASE
+           Pega aquí los datos de tu proyecto (Project Settings > API):
+             · SUPABASE_URL: "Project URL"
+             · SUPABASE_ANON_KEY: la llave pública "anon" o "publishable"
+           NUNCA pongas aquí la llave "service_role".
+           ================================================================ */
+        const SUPABASE_URL = 'https://ivhretmxcnslxvoruwiv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2aHJldG14Y25zbHh2b3J1d2l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDA2NTUsImV4cCI6MjEwNTA3NjY1NX0.nvbMsUgGHxvjySMywLYldA8ok_0oiOa6MvrUIxw18rg';
+
+        const sb = (window.supabase && window.supabase.createClient)
+            ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+            : null;
+
+        const IMG_PLACEHOLDER = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">' +
+            '<rect width="150" height="150" rx="18" fill="#0f172a"/>' +
+            '<text x="75" y="92" font-size="52" text-anchor="middle">💊</text></svg>'
+        );
 
         let dbProductos = [];
         let carrito = {};
         let sesionUsuario = null;
         let filtroCategoriaActual = "Todos";
-        let sucursalSeleccionada = "Sur";
+        let sucursalSeleccionada = "MF16";
+        let nombresSucursal = { "MF16": "MF16", "MF253": "MF253" };
         let paginaActual = 1;
         const productosPorPagina = 10;
 
-        let cuponAplicado = null; 
+        let cuponAplicado = null;
+        let historialCache = {};
+        let canalRastreo = null;
+        let correoPendienteVerificacion = "";
 
         let configuracionHorarios = {
             habilitado: true,
+            panico: false,
+            mensajePanico: "",
+            bloquearFueraHorario: true,
             horaApertura: 9,
             minApertura: 0,
             horaCierre: 19,
             minCierre: 0
         };
 
-        function sincronizarConfiguracionHorario() {
-            const config = JSON.parse(localStorage.getItem("config_tienda") || "{}");
-            configuracionHorarios = {
-                habilitado: config.panico !== true,
-                horaApertura: config.horaApertura !== undefined ? Number(config.horaApertura) : 9,
-                minApertura: config.minApertura !== undefined ? Number(config.minApertura) : 0,
-                horaCierre: config.horaCierre !== undefined ? Number(config.horaCierre) : 19,
-                minCierre: config.minCierre !== undefined ? Number(config.minCierre) : 0
-            };
+        /* ---------------- UTILIDADES ---------------- */
+        function esc(v) {
+            return String(v === null || v === undefined ? "" : v)
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
+        function jsStr(v) {
+            return esc(String(v || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
+        }
+        function imagenProducto(p) {
+            return p && p.imagen && String(p.imagen).trim() !== "" ? p.imagen : IMG_PLACEHOLDER;
+        }
+        function formatoHora12(h, m) {
+            const suf = h >= 12 ? "PM" : "AM";
+            const h12 = (h % 12) === 0 ? 12 : (h % 12);
+            return `${h12}:${String(m).padStart(2, "0")} ${suf}`;
+        }
+        function nombreSucursal(id) { return nombresSucursal[id] || id; }
+
+        function limpiarDatosViejos() {
+            // Datos que guardaba la versión con Google Sheets (incluían recetas en base64)
+            try {
+                ["farma_user", "pedidos_realizados", "backend_url", "config_tienda"].forEach(k => localStorage.removeItem(k));
+                Object.keys(localStorage).filter(k => k.indexOf("reorder_") === 0).forEach(k => localStorage.removeItem(k));
+            } catch (e) {}
+        }
+
+        function traducirErrorAuth(msg) {
+            const m = (msg || "").toLowerCase();
+            if (m.includes("invalid login")) return "Correo o contraseña incorrectos.";
+            if (m.includes("email not confirmed")) return "Tu correo aún no está verificado.";
+            if (m.includes("already registered") || m.includes("already been registered")) return "Ese correo ya está registrado. Inicia sesión.";
+            if (m.includes("password should be") || m.includes("at least 6")) return "La contraseña debe tener al menos 6 caracteres.";
+            if (m.includes("unable to validate email") || m.includes("invalid email")) return "El correo no es válido.";
+            if (m.includes("token has expired") || m.includes("otp") || m.includes("invalid token")) return "El código es incorrecto o ya expiró.";
+            if (m.includes("rate limit") || m.includes("security purposes")) return "Espera un momento antes de volver a intentarlo.";
+            return msg || "Ocurrió un error. Intenta de nuevo.";
+        }
+
+        /* ---------------- CONFIGURACIÓN / HORARIO ---------------- */
+        async function sincronizarConfiguracionHorario() {
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.from("configuracion").select("*").eq("id", 1).maybeSingle();
+                if (error) throw error;
+                if (data) {
+                    configuracionHorarios = {
+                        habilitado: data.panico !== true,
+                        panico: data.panico === true,
+                        mensajePanico: data.mensaje_panico || "",
+                        bloquearFueraHorario: data.bloquear_fuera_horario !== false,
+                        horaApertura: Number(data.hora_apertura),
+                        minApertura: Number(data.min_apertura),
+                        horaCierre: Number(data.hora_cierre),
+                        minCierre: Number(data.min_cierre)
+                    };
+                }
+            } catch (e) { console.warn("No se pudo leer la configuración:", e); }
             verificarHorarioOperacion();
         }
 
         function showToast(message, type = 'info', duration = 3800) {
             const container = document.getElementById('toastContainer');
             if(!container) return;
-            
+
             const toast = document.createElement('div');
             let icon = 'ℹ️';
             if (type === 'success') icon = '✅';
@@ -1693,8 +1776,8 @@
             if (type === 'warning') icon = '⚠️';
 
             toast.className = `toast toast-${type}`;
-            toast.innerHTML = `<span style="font-size:16px;">${icon}</span><div style="flex:1;">${message.replace(/\n/g, '<br>')}</div>`;
-            
+            toast.innerHTML = `<span style="font-size:16px;">${icon}</span><div style="flex:1;">${esc(message).replace(/\n/g, '<br>')}</div>`;
+
             container.appendChild(toast);
 
             setTimeout(() => {
@@ -1708,7 +1791,7 @@
         function aplicarEfectoRebote() {
             const btnHeader = document.getElementById("btnCarrito");
             const badges = document.querySelectorAll(".cart-badge");
-            
+
             if(btnHeader) {
                 btnHeader.classList.remove("pulse-animation");
                 void btnHeader.offsetWidth;
@@ -1759,10 +1842,10 @@
             const ahora = new Date();
             const opciones = { timeZone: 'America/Mexico_City', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
             const partesHora = new Intl.DateTimeFormat('en-US', opciones).formatToParts(ahora);
-            
+
             let h = 0, m = 0, s = 0;
             partesHora.forEach(p => {
-                if (p.type === 'hour') h = parseInt(p.value, 10);
+                if (p.type === 'hour') h = parseInt(p.value, 10) % 24;
                 if (p.type === 'minute') m = parseInt(p.value, 10);
                 if (p.type === 'second') s = parseInt(p.value, 10);
             });
@@ -1772,31 +1855,73 @@
         function verificarHorarioOperacion() {
             const time = obtenerHoraMexico();
             const minActual = time.totalMinutos;
-            
-            const minFin = configuracionHorarios.horaCierre * 60 + configuracionHorarios.minCierre;
+            const c = configuracionHorarios;
+
+            const minIni = c.horaApertura * 60 + c.minApertura;
+            const minFin = c.horaCierre * 60 + c.minCierre;
             const minAviso = minFin - 30;
 
             const banner = document.getElementById("bannerPreventivo");
+            const txtBanner = document.getElementById("txtBannerHorario");
             const txtTiempo = document.getElementById("txtTiempoRestante");
+            const cierreTxt = formatoHora12(c.horaCierre, c.minCierre);
+            const aperturaTxt = formatoHora12(c.horaApertura, c.minApertura);
 
-            if (minActual >= minAviso && minActual < minFin) {
-                const minsRestantes = minFin - minActual;
-                if (banner) banner.style.display = "block";
-                if (txtTiempo) txtTiempo.innerText = `Quedan ${minsRestantes} min para el cierre de pedidos.`;
-            } else {
-                if (banner) banner.style.display = "none";
+            let mensaje = "", tiempo = "";
+            if (c.panico) {
+                mensaje = c.mensajePanico || "🚨 La farmacia está en cierre de emergencia.";
+            } else if (c.bloquearFueraHorario && (minActual < minIni || minActual >= minFin)) {
+                mensaje = `🌙 Estamos fuera de horario. Recibimos pedidos de ${aperturaTxt} a ${cierreTxt}.`;
+            } else if (minActual >= minAviso && minActual < minFin) {
+                mensaje = `⚠️ Recuerda que cerramos pedidos a las ${cierreTxt}.`;
+                tiempo = `Quedan ${minFin - minActual} min para el cierre de pedidos.`;
             }
+
+            if (banner) banner.style.display = mensaje ? "block" : "none";
+            if (txtBanner) txtBanner.innerText = mensaje;
+            if (txtTiempo) txtTiempo.innerText = tiempo;
             return true;
         }
 
+        /* ---------------- SUCURSALES ---------------- */
+        async function cargarSucursales() {
+            if (!sb) return;
+            try {
+                const { data, error } = await sb.from("sucursales").select("id,nombre").eq("activa", true).order("orden");
+                if (error) throw error;
+                if (!data || !data.length) return;
+                const sel = document.getElementById("globalSucursalSelector");
+                const actual = sel.value;
+                nombresSucursal = {};
+                sel.innerHTML = data.map(s => {
+                    nombresSucursal[s.id] = s.nombre;
+                    return `<option value="${esc(s.id)}">${esc(s.nombre)}</option>`;
+                }).join("");
+                sel.value = data.some(s => s.id === actual) ? actual : data[0].id;
+                sucursalSeleccionada = sel.value;
+                document.getElementById("sucursalCarritoBadge").innerText = `Comprando en: Sucursal ${nombreSucursal(sucursalSeleccionada)}`;
+            } catch (e) { console.warn("No se pudieron cargar las sucursales:", e); }
+        }
+
         window.onload = async () => {
-            sincronizarConfiguracionHorario();
-            verificarHorarioOperacion();
+            limpiarDatosViejos();
+
+            if (!sb) {
+                showToast("No se pudo cargar la conexión con el servidor. Revisa tu internet y recarga la página.", "danger", 8000);
+                return;
+            }
+
+            await Promise.all([sincronizarConfiguracionHorario(), cargarSucursales()]);
             setInterval(verificarHorarioOperacion, 5000);
+            setInterval(sincronizarConfiguracionHorario, 120000);
 
             await descargarCatalogo();
-            verificarCacheSesion();
-            
+            await verificarCacheSesion();
+
+            sb.auth.onAuthStateChange((event) => {
+                if (event === "SIGNED_OUT" && sesionUsuario) limpiarSesionUI(false);
+            });
+
             document.addEventListener("click", (e) => {
                 const wrapper = document.querySelector(".search-wrapper");
                 if(wrapper && !wrapper.contains(e.target)) {
@@ -1809,7 +1934,7 @@
         };
 
         function normalizarTexto(txt) {
-            return (txt || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return (txt || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
         }
 
         function obtenerListaFavoritos() {
@@ -1831,7 +1956,6 @@
                 favoritos.push(codigo);
             }
             sesionUsuario.favoritos = favoritos.join(",");
-            localStorage.setItem("farma_user", JSON.stringify(sesionUsuario));
             document.getElementById("txtPrefFavoritos").value = sesionUsuario.favoritos;
             filtrarCatalogoCompleto();
             await guardarDatosPerfilServidor(true);
@@ -1839,25 +1963,40 @@
 
         async function cambiarSucursalGlobal() {
             sucursalSeleccionada = document.getElementById("globalSucursalSelector").value;
-            document.getElementById("sucursalCarritoBadge").innerText = `Comprando en: Sucursal ${sucursalSeleccionada}`;
+            document.getElementById("sucursalCarritoBadge").innerText = `Comprando en: Sucursal ${nombreSucursal(sucursalSeleccionada)}`;
             carrito = {};
             cuponAplicado = null;
+            document.getElementById("lblInfoCupon").style.display = "none";
             actualizarGraficosCarrito();
             paginaActual = 1;
             await descargarCatalogo();
         }
 
+        /* ---------------- CATÁLOGO (antes: action=productos) ---------------- */
         async function descargarCatalogo() {
             mostrarSkeletonsCatalogo();
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=productos&sucursal=${sucursalSeleccionada}`);
-                const data = await response.json();
-                dbProductos = Array.isArray(data) ? data : [];
+                const paso = 1000;
+                let desde = 0, todos = [];
+                while (true) {
+                    const { data, error } = await sb.from("v_catalogo")
+                        .select("codigo,nombre,descripcion,categoria,imagen,precio,precio_anterior,promocion,requiere_receta,stock")
+                        .eq("sucursal", sucursalSeleccionada)
+                        .order("nombre", { ascending: true })
+                        .range(desde, desde + paso - 1);
+                    if (error) throw error;
+                    todos = todos.concat(data || []);
+                    if (!data || data.length < paso) break;
+                    desde += paso;
+                }
+                dbProductos = todos;
                 paginaActual = 1;
+                renderizarPillsCategorias();
                 filtrarCatalogoCompleto();
                 renderizarPromociones();
-            } catch(e) { 
-                console.error("Error cargando productos:", e); 
+            } catch(e) {
+                console.error("Error cargando productos:", e);
+                document.getElementById("catalogGrid").innerHTML = "";
                 showToast("Error al conectar con el servidor de catálogo.", "danger");
             }
         }
@@ -1866,7 +2005,7 @@
             const grid = document.getElementById("catalogGrid");
             const paginationWrapper = document.getElementById("paginationContainerWrapper");
             grid.innerHTML = "";
-            
+
             if(listado.length === 0) {
                 grid.innerHTML = `<p style="color:var(--text-muted); grid-column:1/-1; text-align:center; padding: 40px 0; font-weight:600;">No se encontraron medicamentos en este rango o búsqueda.</p>`;
                 paginationWrapper.style.display = "none";
@@ -1883,10 +2022,10 @@
             if (totalPaginas > 1) {
                 paginationWrapper.style.display = "flex";
                 document.getElementById("paginationInfoText").innerText = `Página ${paginaActual} de ${totalPaginas} (${listado.length} productos)`;
-                
+
                 let tabsHtml = "";
                 tabsHtml += `<button class="page-tab nav-arrow" ${paginaActual === 1 ? 'disabled' : ''} onclick="cambiarPagina(${paginaActual - 1})">❮</button>`;
-                
+
                 for (let i = 1; i <= totalPaginas; i++) {
                     if (i === 1 || i === totalPaginas || (i >= paginaActual - 1 && i <= paginaActual + 1)) {
                         tabsHtml += `<button class="page-tab ${i === paginaActual ? 'active' : ''}" onclick="cambiarPagina(${i})">${i}</button>`;
@@ -1894,43 +2033,44 @@
                         tabsHtml += `<span style="color:var(--text-muted); padding: 0 4px;">...</span>`;
                     }
                 }
-                
+
                 tabsHtml += `<button class="page-tab nav-arrow" ${paginaActual === totalPaginas ? 'disabled' : ''} onclick="cambiarPagina(${paginaActual + 1})">❯</button>`;
                 document.getElementById("paginationTabsContainerBottom").innerHTML = tabsHtml;
             } else {
                 paginationWrapper.style.display = "none";
             }
 
-            productosPaginados.forEach(p => {
+            grid.innerHTML = productosPaginados.map(p => {
                 const favActivo = esFavorito(p.codigo);
                 const stockVal = p.stock !== null && p.stock !== undefined && !isNaN(p.stock) ? Number(p.stock) : 0;
                 const pPrecio = Number(p.precio) || 0;
-                const pImagen = p.imagen && p.imagen.trim() !== "" ? p.imagen : "https://via.placeholder.com/150";
+                const pImagen = imagenProducto(p);
+                const cod = jsStr(p.codigo);
 
-                grid.innerHTML += `
+                return `
                     <div class="card">
-                        <button class="fav-btn ${favActivo ? 'active' : ''}" onclick="alternarFavorito('${p.codigo}', event)" title="${favActivo ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
+                        <button class="fav-btn ${favActivo ? 'active' : ''}" onclick="alternarFavorito('${cod}', event)" title="${favActivo ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
                             ${favActivo ? '❤️' : '🤍'}
                         </button>
-                        <img src="${pImagen}" onerror="this.src='https://via.placeholder.com/150'" alt="${p.nombre}" onclick="abrirQuickView('${p.codigo}')" style="cursor:pointer;" title="Ver vista rápida">
+                        <img src="${esc(pImagen)}" onerror="this.onerror=null;this.src=IMG_PLACEHOLDER" alt="${esc(p.nombre)}" onclick="abrirQuickView('${cod}')" style="cursor:pointer;" title="Ver vista rápida" loading="lazy">
                         <div>
-                            <span style="font-size:10px; color:var(--primary-light); font-family:monospace; display:block; margin-bottom:4px; font-weight:700;">COD: ${p.codigo || '-'}</span>
-                            <h3 onclick="abrirQuickView('${p.codigo}')" style="cursor:pointer;">${p.nombre || 'Sin nombre'}</h3>
-                            <p>${p.descripcion || '-'}</p>
+                            <span style="font-size:10px; color:var(--primary-light); font-family:monospace; display:block; margin-bottom:4px; font-weight:700;">COD: ${esc(p.codigo || '-')}${p.requiere_receta ? ' · 📄 Requiere receta' : ''}</span>
+                            <h3 onclick="abrirQuickView('${cod}')" style="cursor:pointer;">${esc(p.nombre || 'Sin nombre')}</h3>
+                            <p>${esc(p.descripcion || '-')}</p>
                         </div>
                         <div class="card-footer">
                             <span class="price">$${pPrecio.toFixed(2)}</span>
                             <div class="card-actions">
                                 <small class="card-stock ${ stockVal <= 0 ? 'low' : '' }">Stock: ${ stockVal }</small>
                                 <div style="display:flex; gap:6px;">
-                                    <button class="btn" style="padding:6px 10px; background:var(--bg-input); color:var(--text-main); min-height:32px; border:var(--border-glow); box-shadow:none;" onclick="abrirQuickView('${p.codigo}')" title="Vista Rápida">👁️</button>
-                                    <button class="btn" ${stockVal <= 0 ? 'disabled' : ''} onclick="meterAlCarrito('${p.codigo}', '${(p.nombre || '').replace(/'/g, "\\'")}', ${pPrecio})">🛒</button>
+                                    <button class="btn" style="padding:6px 10px; background:var(--bg-input); color:var(--text-main); min-height:32px; border:var(--border-glow); box-shadow:none;" onclick="abrirQuickView('${cod}')" title="Vista Rápida">👁️</button>
+                                    <button class="btn" ${stockVal <= 0 ? 'disabled' : ''} onclick="meterAlCarrito('${cod}', '${jsStr(p.nombre)}', ${pPrecio})">🛒</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 `;
-            });
+            }).join("");
         }
 
         function cambiarPagina(numPagina) {
@@ -2011,8 +2151,8 @@
             if(coincidencias.length === 0) { cont.style.display = "none"; cont.innerHTML = ""; return; }
 
             cont.innerHTML = coincidencias.map(p => `
-                <div class="suggestion-item" onclick="seleccionarSugerencia('${(p.nombre || '').replace(/'/g, "\\'")}')">
-                    <span>${p.nombre}</span>
+                <div class="suggestion-item" onclick="seleccionarSugerencia('${jsStr(p.nombre)}')">
+                    <span>${esc(p.nombre)}</span>
                     <small>$${Number(p.precio || 0).toFixed(2)}</small>
                 </div>
             `).join("");
@@ -2027,6 +2167,29 @@
             filtrarCatalogoCompleto();
         }
 
+        const ICONOS_CATEGORIA = {
+            "Analgésico":"💊","Antiinflamatorio":"🔥","Antibiótico":"🛡️","Controlado":"🔒","Antigripal, tos y garganta":"🤧",
+            "Antialérgico":"🌼","Gastrointestinal":"🫃","Cardiovascular y circulación":"❤️‍🩹","Diabetes":"🩸",
+            "Respiratorio y asma":"🫁","Neurológico y psiquiátrico":"🧠","Hormonal y anticonceptivos":"⚕️","Corticosteroide":"💉",
+            "Relajante muscular":"💪","Antimicótico":"🍄","Antiparasitario":"🪱","Antiviral":"🦠","Urológico y renal":"💧",
+            "Huesos y articulaciones":"🦴","Oftálmico y ótico":"👁️","Dermatológico":"🧴","Vitaminas y suplementos":"✨",
+            "Hidratación y sueros":"🥤","Salud sexual":"💞","Material de curación e inyectables":"🩹","Equipo médico y ortopedia":"🦽",
+            "Bebé y maternidad":"🍼","Higiene personal":"🧼","Belleza y cuidado de la piel":"💄","Herbolaria y remedios":"🌿",
+            "Alimentos y bebidas":"🍫","Hogar y otros":"🏠","Otros medicamentos":"💊","General":"📦"
+        };
+
+        function renderizarPillsCategorias() {
+            const cont = document.getElementById("categoryPills");
+            if (!cont) return;
+            const conteo = {};
+            dbProductos.forEach(p => { const c = p.categoria || "General"; conteo[c] = (conteo[c] || 0) + 1; });
+            const cats = Object.keys(conteo).sort((a, b) => conteo[b] - conteo[a]);
+            if (filtroCategoriaActual !== "Todos" && filtroCategoriaActual !== "Favoritos" && !conteo[filtroCategoriaActual]) filtroCategoriaActual = "Todos";
+            const pill = (valor, texto) => `<button class="pill ${filtroCategoriaActual === valor ? 'active' : ''}" onclick="filtrarPorCategoria('${jsStr(valor)}', this)">${texto}</button>`;
+            cont.innerHTML = pill("Todos", "🌿 Todos") + pill("Favoritos", "❤️ Favoritos") +
+                cats.map(c => pill(c, `${ICONOS_CATEGORIA[c] || "💊"} ${esc(c)}`)).join("");
+        }
+
         function filtrarPorCategoria(cat, elemento) {
             document.querySelectorAll(".pill").forEach(b => b.classList.remove("active"));
             elemento.classList.add("active");
@@ -2038,18 +2201,19 @@
         function abrirQuickView(codigo) {
             const p = dbProductos.find(x => x.codigo === codigo);
             if(!p) return;
-            
+
             const stockVal = p.stock !== null && p.stock !== undefined && !isNaN(p.stock) ? Number(p.stock) : 0;
             const pPrecio = Number(p.precio) || 0;
-            const pImagen = p.imagen && p.imagen.trim() !== "" ? p.imagen : "https://via.placeholder.com/150";
 
-            document.getElementById("qvImg").src = pImagen;
+            const img = document.getElementById("qvImg");
+            img.onerror = function(){ this.onerror = null; this.src = IMG_PLACEHOLDER; };
+            img.src = imagenProducto(p);
             document.getElementById("qvNombre").innerText = p.nombre || 'Sin nombre';
             document.getElementById("qvCodigo").innerText = `CÓDIGO: ${p.codigo || '-'}`;
-            document.getElementById("qvCategoria").innerText = p.categoria || 'General';
+            document.getElementById("qvCategoria").innerText = (p.categoria || 'General') + (p.requiere_receta ? ' · Requiere receta' : '');
             document.getElementById("qvDescripcion").innerText = p.descripcion || 'Sin descripción detallada disponible.';
             document.getElementById("qvPrecio").innerText = `$${pPrecio.toFixed(2)}`;
-            
+
             const qvStock = document.getElementById("qvStock");
             qvStock.innerText = `Stock: ${stockVal}`;
             qvStock.className = stockVal <= 0 ? "card-stock low" : "card-stock";
@@ -2057,7 +2221,7 @@
             const btnAdd = document.getElementById("qvBtnAgregar");
             btnAdd.disabled = stockVal <= 0;
             btnAdd.onclick = () => {
-                meterAlCarrito(p.codigo, (p.nombre || '').replace(/'/g, "\\'"), pPrecio);
+                meterAlCarrito(p.codigo, p.nombre || '', pPrecio);
                 cerrarQuickView();
             };
 
@@ -2083,7 +2247,7 @@
                 }
                 carrito[codigo].qty++;
             } else {
-                carrito[codigo] = { code: codigo, name: nombre, price: precio, qty: 1 };
+                carrito[codigo] = { code: codigo, name: nombre, price: Number(precio) || 0, qty: 1 };
             }
             actualizarGraficosCarrito();
             aplicarEfectoRebote();
@@ -2107,79 +2271,81 @@
             aplicarEfectoRebote();
         }
 
+        function subtotalCarrito() {
+            return Object.values(carrito).reduce((a, b) => a + (b.price * b.qty), 0);
+        }
+
+        /* ---------------- CUPONES (antes: action=validarCupon) ---------------- */
         async function aplicarCuponDescuento() {
             const codigoInput = document.getElementById("txtCodigoCupon").value.trim().toUpperCase();
             const lblInfo = document.getElementById("lblInfoCupon");
-            
+
             if(!codigoInput) {
                 showToast("Ingresa un código de cupón válido.", "warning");
                 return;
             }
 
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=validarCupon&codigo=${codigoInput}`);
-                const data = await response.json();
+                const { data, error } = await sb.rpc("validar_cupon", { p_codigo: codigoInput, p_subtotal: subtotalCarrito() || null });
+                if (error) throw error;
 
-                if(data.error || !data.valido) {
-                    showToast(data.error || "Cupón no válido o expirado.", "danger");
+                if(!data || !data.valido) {
+                    showToast((data && data.error) || "Cupón no válido o expirado.", "danger");
                     lblInfo.style.display = "none";
                     cuponAplicado = null;
                 } else {
                     cuponAplicado = {
                         codigo: data.codigo,
                         tipo: data.tipo,
-                        valor: Number(data.valor)
+                        valor: Number(data.valor),
+                        minimo: Number(data.minimo_compra) || 0
                     };
                     showToast(`¡Cupón "${data.codigo}" aplicado con éxito!`, "success");
                     lblInfo.style.display = "block";
-                    lblInfo.innerText = `✔️ Cupón ${data.codigo} aplicado (${data.tipo === 'porcentaje' ? data.valor + '%' : '$' + data.valor} de descuento)`;
+                    lblInfo.innerText = `✔️ Cupón ${data.codigo} aplicado (${data.tipo === 'porcentaje' ? Number(data.valor) + '%' : '$' + Number(data.valor).toFixed(2)} de descuento)`;
                     document.getElementById("txtCodigoCupon").value = "";
                 }
                 actualizarGraficosCarrito();
             } catch(e) {
-                if(codigoInput === "SALUD10") {
-                    cuponAplicado = { codigo: "SALUD10", tipo: "porcentaje", valor: 10 };
-                    showToast(`¡Cupón "SALUD10" aplicado (10% de descuento)!`, "success");
-                    lblInfo.style.display = "block";
-                    lblInfo.innerText = `✔️ Cupón SALUD10 aplicado (10% desc.)`;
-                    document.getElementById("txtCodigoCupon").value = "";
-                    actualizarGraficosCarrito();
-                } else {
-                    showToast("Cupón inválido o no reconocido.", "danger");
-                }
+                console.error(e);
+                showToast("No se pudo validar el cupón. Revisa tu conexión.", "danger");
             }
         }
 
         function actualizarGraficosCarrito() {
             const container = document.getElementById("cartItemsContainer");
-            container.innerHTML = "";
             let subtotal = 0;
             let itemCount = 0;
-            
-            Object.values(carrito).forEach(p => {
-                let sub = p.price * p.qty;
-                subtotal += sub;
+
+            container.innerHTML = Object.values(carrito).map(p => {
+                subtotal += p.price * p.qty;
                 itemCount += p.qty;
-                container.innerHTML += `
+                return `
                     <div class="cart-item">
                         <div class="cart-item-info">
-                            <h4>${p.name}</h4>
+                            <h4>${esc(p.name)}</h4>
                             <span>$${p.price.toFixed(2)} x ${p.qty}</span>
                         </div>
                         <div class="cart-item-controls">
-                            <button class="btn" style="background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="modificarCantidadCarrito('${p.code}', -1)">−</button>
-                            <button class="btn" style="background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="modificarCantidadCarrito('${p.code}', 1)">+</button>
+                            <button class="btn" style="background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="modificarCantidadCarrito('${jsStr(p.code)}', -1)">−</button>
+                            <button class="btn" style="background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="modificarCantidadCarrito('${jsStr(p.code)}', 1)">+</button>
                         </div>
                     </div>
                 `;
-            });
+            }).join("");
 
             let descuentoMonto = 0;
             const filaDesc = document.getElementById("filaDescuentoCupon");
-            
+
+            if(cuponAplicado && subtotal > 0 && subtotal < (cuponAplicado.minimo || 0)) {
+                showToast(`El cupón ${cuponAplicado.codigo} requiere una compra mínima de $${cuponAplicado.minimo.toFixed(2)}. Se quitó del carrito.`, "warning");
+                cuponAplicado = null;
+                document.getElementById("lblInfoCupon").style.display = "none";
+            }
+
             if(cuponAplicado && subtotal > 0) {
                 if(cuponAplicado.tipo === 'porcentaje') {
-                    descuentoMonto = subtotal * (cuponAplicado.valor / 100);
+                    descuentoMonto = Math.round(subtotal * cuponAplicado.valor) / 100;
                     document.getElementById("lblNombreCuponAplicado").innerText = `Descuento (${cuponAplicado.codigo} - ${cuponAplicado.valor}%):`;
                 } else {
                     descuentoMonto = cuponAplicado.valor;
@@ -2190,7 +2356,11 @@
                 document.getElementById("lblMontoDescuento").innerText = `-$${descuentoMonto.toFixed(2)}`;
             } else {
                 if(filaDesc) filaDesc.style.display = "none";
-                cuponAplicado = null;
+                if(subtotal === 0) {
+                    cuponAplicado = null;
+                    const lbl = document.getElementById("lblInfoCupon");
+                    if (lbl) lbl.style.display = "none";
+                }
             }
 
             let totalFinal = subtotal - descuentoMonto;
@@ -2198,7 +2368,7 @@
 
             document.getElementById("lblSubtotalCart").innerText = `$${subtotal.toFixed(2)}`;
             document.getElementById("lblTotalCart").innerText = `$${totalFinal.toFixed(2)}`;
-            
+
             const cartBadge = document.getElementById("cartCounter");
             const cartBadgeBottom = document.getElementById("cartCounterBottom");
 
@@ -2217,8 +2387,12 @@
 
         function generarHtmlTimeline(estadoActual) {
             const estNorm = normalizarTexto(estadoActual || "");
+
+            if (estNorm.includes("cancel")) {
+                return `<div style="margin-top:10px; padding:10px; border-radius:10px; background:rgba(239,68,68,0.12); color:var(--danger); font-weight:700; text-align:center;">❌ Pedido cancelado</div>`;
+            }
+
             let pasoNum = 1;
-            
             if (estNorm.includes("prepar") || estNorm.includes("proces")) {
                 pasoNum = 2;
             } else if (estNorm.includes("camin") || estNorm.includes("ruta") || estNorm.includes("despach")) {
@@ -2253,51 +2427,103 @@
             `;
         }
 
-        async function consultarRastreoInterno() {
-            const folio = document.getElementById("txtRastreoFolio").value.trim();
-            const pantalla = document.getElementById("panelStatusScreen");
-            
-            if(!folio) return;
-            pantalla.innerHTML = `<div style="padding:14px;"><span class="spinner" style="border-top-color:var(--primary);"></span> Consultando base de datos...</div>`;
-            
-            try {
-                const response = await fetch(`${SCRIPT_URL}?action=pedidos&folio=${folio}`);
-                const data = await response.json();
-                
-                if(data && data.length > 0) {
-                    const p = data[0];
-                    const timelineHtml = generarHtmlTimeline(p.estado);
-                    pantalla.innerHTML = `
-                        <div style="text-align:left; margin-top:12px; background:rgba(2, 6, 23, 0.6); padding:14px; border-radius:14px; border:var(--border-glow);">
-                            <p style="margin-bottom:6px;"><b>Sucursal:</b> ${p.sucursal || sucursalSeleccionada}</p>
-                            <p style="margin-bottom:6px;"><b>Paciente:</b> ${p.cliente}</p>
-                            <p style="margin-bottom:6px;"><b>Dirección:</b> ${p.domicilio}</p>
-                            <p style="margin-bottom:6px;"><b>Estado:</b> <span style="color:var(--primary-light); font-weight:700;">${p.estado}</span></p>
-                            <p style="margin-bottom:10px;"><b>Pago:</b> ${p.metodo_pago || 'Efectivo'}</p>
-                            ${timelineHtml}
-                        </div>
-                    `;
-                } else {
-                    pantalla.innerHTML = `<span style="color:var(--danger); font-weight:700;">Folio incorrecto o no registrado.</span>`;
-                }
-            } catch(e) { pantalla.innerHTML = "Error de sincronización con el servidor."; }
+        /* ---------------- RASTREO (antes: action=pedidos&folio=) ---------------- */
+        function textoReceta(estado) {
+            if (estado === "pendiente") return "📄 En revisión por el farmacéutico";
+            if (estado === "aprobada") return "✅ Aprobada";
+            if (estado === "rechazada") return "❌ Rechazada (te contactaremos)";
+            return "";
         }
 
+        function detenerRastreoEnVivo() {
+            if (canalRastreo && sb) { sb.removeChannel(canalRastreo); }
+            canalRastreo = null;
+        }
+
+        function suscribirRastreoEnVivo(folio) {
+            detenerRastreoEnVivo();
+            canalRastreo = sb.channel("rastreo-" + folio)
+                .on("postgres_changes",
+                    { event: "UPDATE", schema: "public", table: "pedidos", filter: "folio=eq." + folio },
+                    () => {
+                        const abierto = document.getElementById("modalRastreo").classList.contains("active");
+                        const folioActual = document.getElementById("txtRastreoFolio").value.trim().toUpperCase();
+                        if (abierto && folioActual === folio) consultarRastreoInterno(true);
+                    })
+                .subscribe();
+        }
+
+        async function consultarRastreoInterno(silencioso = false) {
+            const folio = document.getElementById("txtRastreoFolio").value.trim().toUpperCase();
+            const pantalla = document.getElementById("panelStatusScreen");
+
+            if(!folio) return;
+            if (!silencioso) {
+                pantalla.innerHTML = `<div style="padding:14px;"><span class="spinner" style="border-top-color:var(--primary);"></span> Consultando base de datos...</div>`;
+            }
+
+            try {
+                const { data: p, error } = await sb.rpc("rastrear_pedido", { p_folio: folio });
+                if (error) throw error;
+
+                if(p) {
+                    const timelineHtml = generarHtmlTimeline(p.estado);
+                    const receta = textoReceta(p.receta_estado);
+                    pantalla.innerHTML = `
+                        <div style="text-align:left; margin-top:12px; background:rgba(2, 6, 23, 0.6); padding:14px; border-radius:14px; border:var(--border-glow);">
+                            <p style="margin-bottom:6px;"><b>Folio:</b> ${esc(p.folio)}</p>
+                            <p style="margin-bottom:6px;"><b>Sucursal:</b> ${esc(nombreSucursal(p.sucursal))}</p>
+                            <p style="margin-bottom:6px;"><b>Paciente:</b> ${esc(p.cliente)}</p>
+                            <p style="margin-bottom:6px;"><b>Dirección:</b> ${esc(p.domicilio)}</p>
+                            <p style="margin-bottom:6px;"><b>Estado:</b> <span style="color:var(--primary-light); font-weight:700;">${esc(p.estado)}</span></p>
+                            ${p.total !== null && p.total !== undefined ? `<p style="margin-bottom:6px;"><b>Total:</b> $${Number(p.total).toFixed(2)}</p>` : ''}
+                            ${receta ? `<p style="margin-bottom:6px;"><b>Receta:</b> ${receta}</p>` : ''}
+                            <p style="margin-bottom:10px;"><b>Pago:</b> ${esc(p.metodo_pago || 'Efectivo')}</p>
+                            ${timelineHtml}
+                            ${p.propio ? `<p style="margin-top:10px; font-size:11px; color:var(--text-muted); text-align:center;">🟢 Se actualiza solo cuando cambie el estado.</p>` : ''}
+                        </div>
+                    `;
+                    if (p.propio) suscribirRastreoEnVivo(p.folio); else detenerRastreoEnVivo();
+                } else {
+                    detenerRastreoEnVivo();
+                    pantalla.innerHTML = `<span style="color:var(--danger); font-weight:700;">Folio incorrecto o no registrado.</span>`;
+                }
+            } catch(e) {
+                console.error(e);
+                if (!silencioso) pantalla.innerHTML = "Error de sincronización con el servidor.";
+            }
+        }
+
+        /* ---------------- HISTORIAL (antes: action=pedidos&correo=) ---------------- */
         function repetirPedido(folio) {
-            const guardadoLocal = localStorage.getItem('reorder_' + folio);
-            if(guardadoLocal) {
-                const carritoAnterior = JSON.parse(guardadoLocal);
-                Object.values(carritoAnterior).forEach(item => {
-                    if(carrito[item.code]) { carrito[item.code].qty += item.qty; }
-                    else { carrito[item.code] = item; }
-                });
-                actualizarGraficosCarrito();
+            const pedido = historialCache[folio];
+            if(!pedido || !pedido.pedido_detalle || !pedido.pedido_detalle.length) {
+                showToast("No se encontraron los productos de este pedido.", "warning");
+                return;
+            }
+
+            let agregados = 0, faltantes = [];
+            pedido.pedido_detalle.forEach(item => {
+                const prod = dbProductos.find(p => p.codigo === item.codigo);
+                const stock = prod ? Number(prod.stock) || 0 : 0;
+                const enCarrito = carrito[item.codigo] ? carrito[item.codigo].qty : 0;
+                const cabe = Math.min(item.cantidad, stock - enCarrito);
+                if (!prod || cabe <= 0) { faltantes.push(item.nombre); return; }
+                if (carrito[item.codigo]) carrito[item.codigo].qty += cabe;
+                else carrito[item.codigo] = { code: prod.codigo, name: prod.nombre, price: Number(prod.precio) || 0, qty: cabe };
+                agregados += cabe;
+                if (cabe < item.cantidad) faltantes.push(`${item.nombre} (solo ${cabe} de ${item.cantidad})`);
+            });
+
+            actualizarGraficosCarrito();
+            if (agregados > 0) {
                 aplicarEfectoRebote();
                 cerrarModalHistorial();
                 abrirCarrito();
-                showToast("Productos recuperados y añadidos exitosamente al carrito actual.", "success");
+                showToast("Productos añadidos al carrito con los precios actuales." + (faltantes.length ? `\nSin existencias en esta sucursal: ${faltantes.join(", ")}` : ""), faltantes.length ? "warning" : "success", 6000);
             } else {
-                showToast("Los detalles de inventario exactos de este pedido no están guardados en este dispositivo para realizar la repetición automática.", "warning");
+                const suc = pedido.sucursal_id !== sucursalSeleccionada ? ` Este pedido fue de la sucursal ${nombreSucursal(pedido.sucursal_id)}.` : "";
+                showToast("Ninguno de esos productos tiene existencias en la sucursal actual." + suc, "warning", 6000);
             }
         }
 
@@ -2306,28 +2532,39 @@
             if(!sesionUsuario) { cont.innerHTML = "Debes iniciar sesión para ver tu historial."; return; }
             cont.innerHTML = `<div style="padding:14px; text-align:center;"><span class="spinner" style="border-top-color:var(--primary);"></span> Cargando pedidos...</div>`;
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=pedidos&correo=${sesionUsuario.correo}`);
-                const propios = await response.json();
+                const { data: propios, error } = await sb.from("pedidos")
+                    .select("folio,estado,productos,total,sucursal_id,created_at,pedido_detalle(codigo,nombre,precio,cantidad)")
+                    .eq("cliente_id", sesionUsuario.id)
+                    .order("created_at", { ascending: false })
+                    .limit(50);
+                if (error) throw error;
 
-                if(!propios || propios.length === 0 || propios.error) {
+                if(!propios || propios.length === 0) {
                     cont.innerHTML = `Aún no tienes pedidos registrados en tu cuenta.`;
                     return;
                 }
 
+                historialCache = {};
+                propios.forEach(p => { historialCache[p.folio] = p; });
+
                 cont.innerHTML = propios.map(p => `
                     <div class="historial-item">
                         <div class="historial-item-top">
-                            <b style="color:var(--text-main);">${p.folio}</b>
-                            <span style="color:var(--primary-light); font-weight:700; font-size:11px; background:rgba(74, 222, 128, 0.15); padding:3px 8px; border-radius:6px; border:1px solid rgba(74, 222, 128, 0.3);">${p.estado}</span>
+                            <b style="color:var(--text-main);">${esc(p.folio)}</b>
+                            <span style="color:var(--primary-light); font-weight:700; font-size:11px; background:rgba(74, 222, 128, 0.15); padding:3px 8px; border-radius:6px; border:1px solid rgba(74, 222, 128, 0.3);">${esc(p.estado)}</span>
                         </div>
-                        <div class="historial-item-productos" style="line-height: 1.4; margin: 6px 0 10px 0;">${p.productos || ''}</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${new Date(p.created_at).toLocaleString('es-MX')} · ${esc(nombreSucursal(p.sucursal_id))} · $${Number(p.total).toFixed(2)}</div>
+                        <div class="historial-item-productos" style="line-height: 1.4; margin: 6px 0 10px 0;">${esc(p.productos || '').replace(/\n/g, '<br>')}</div>
                         <div style="display:flex; gap:8px;">
-                            <button class="btn" style="padding:6px 10px; font-size:11px; min-height:28px; flex:1; background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="verEsteFolio('${p.folio}')">Ver rastreo</button>
-                            <button class="btn btn-success" style="padding:6px 10px; font-size:11px; min-height:28px; flex:1;" onclick="repetirPedido('${p.folio}')">Volver a pedir</button>
+                            <button class="btn" style="padding:6px 10px; font-size:11px; min-height:28px; flex:1; background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="verEsteFolio('${jsStr(p.folio)}')">Ver rastreo</button>
+                            <button class="btn btn-success" style="padding:6px 10px; font-size:11px; min-height:28px; flex:1;" onclick="repetirPedido('${jsStr(p.folio)}')">Volver a pedir</button>
                         </div>
                     </div>
                 `).join("");
-            } catch(e) { cont.innerHTML = "Error al cargar tu historial de pedidos."; }
+            } catch(e) {
+                console.error(e);
+                cont.innerHTML = "Error al cargar tu historial de pedidos.";
+            }
         }
 
         function verEsteFolio(folio) {
@@ -2337,137 +2574,115 @@
             consultarRastreoInterno();
         }
 
+        /* ---------------- CREAR PEDIDO (antes: action=crearPedido) ---------------- */
+        async function subirReceta(archivo) {
+            if (archivo.size > 10 * 1024 * 1024) throw new Error("La receta pesa más de 10 MB. Toma la foto con menor resolución.");
+            const nombreSeguro = (archivo.name || "receta").replace(/[^a-zA-Z0-9._-]/g, "_").slice(-60);
+            const ruta = `${sesionUsuario.id}/${Date.now()}_${nombreSeguro}`;
+            const { error } = await sb.storage.from("recetas").upload(ruta, archivo, {
+                contentType: archivo.type || undefined,
+                upsert: false
+            });
+            if (error) throw new Error("No se pudo subir la receta: " + error.message);
+            return ruta;
+        }
+
         async function procesarOrdenCompraFinal(e) {
             const nom = document.getElementById("orderNombre").value.trim();
             const dom = document.getElementById("orderDomicilio").value.trim();
             const pago = document.getElementById("orderMetodoPago").value;
             const inputReceta = document.getElementById("orderReceta");
-            
+
+            if(!sesionUsuario) { showToast("Inicia sesión para hacer tu pedido.", "warning"); return; }
             if(!nom || !dom) { showToast("Completa los datos de despacho urgente.", "warning"); return; }
             if(Object.keys(carrito).length === 0) { showToast("Tu carrito está vacío.", "warning"); return; }
 
-            let arrProdStr = Object.values(carrito).map(x => `• ${x.name} (${x.qty}pz)`).join("<br>");
-            let subtotalGen = Object.values(carrito).reduce((a, b) => a + (b.price * b.qty), 0);
-            
-            let descuentoVal = 0;
-            if(cuponAplicado) {
-                if(cuponAplicado.tipo === 'porcentaje') {
-                    descuentoVal = subtotalGen * (cuponAplicado.valor / 100);
-                } else {
-                    descuentoVal = cuponAplicado.valor;
-                }
-            }
-            let totalGeneral = subtotalGen - descuentoVal;
-            if(totalGeneral < 0) totalGeneral = 0;
-
-            let nuevoFolio = "FH-" + Math.floor(100000 + Math.random() * 900000);
-
-            let archivoBase64 = "";
-            if (inputReceta.files && inputReceta.files.length > 0) {
-                try {
-                    archivoBase64 = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(inputReceta.files[0]);
-                    });
-                } catch(error) {
-                    showToast("Ocurrió un error al cargar la receta médica.", "danger");
-                    return;
-                }
+            const necesitaReceta = Object.values(carrito).some(x => {
+                const p = dbProductos.find(d => d.codigo === x.code);
+                return p && p.requiere_receta;
+            });
+            const tieneReceta = inputReceta.files && inputReceta.files.length > 0;
+            if (necesitaReceta && !tieneReceta) {
+                showToast("Uno o más productos requieren receta médica. Adjúntala para continuar.", "warning", 5000);
+                return;
             }
 
-            const btnConfirm = e.target;
+            const btnConfirm = document.getElementById("btnConfirmarOrden") || e.target;
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = `<span class="spinner"></span> Procesando...`;
+
             try {
-                const config = JSON.parse(localStorage.getItem("config_tienda") || "{}");
-                if(config.panico === true) {
-                    showToast("🚨 La farmacia está en cierre de emergencia. No se pueden procesar pedidos en este momento.", "danger");
+                let rutaReceta = null;
+                if (tieneReceta) {
+                    btnConfirm.innerHTML = `<span class="spinner"></span> Subiendo receta...`;
+                    rutaReceta = await subirReceta(inputReceta.files[0]);
+                    btnConfirm.innerHTML = `<span class="spinner"></span> Procesando...`;
+                }
+
+                const { data: res, error } = await sb.rpc("crear_pedido", {
+                    p_sucursal: sucursalSeleccionada,
+                    p_cliente: nom,
+                    p_domicilio: dom,
+                    p_metodo_pago: pago,
+                    p_items: Object.values(carrito).map(x => ({ codigo: x.code, cantidad: x.qty })),
+                    p_cupon: cuponAplicado ? cuponAplicado.codigo : null,
+                    p_receta_path: rutaReceta
+                });
+
+                if (error) {
+                    // El servidor NO guardó el pedido: el cliente se entera y conserva su carrito.
+                    showToast(error.message || "No se pudo registrar tu pedido. Intenta de nuevo.", "danger", 6000);
+                    await descargarCatalogo();
                     return;
                 }
 
-                btnConfirm.disabled = true;
-                btnConfirm.innerHTML = `<span class="spinner"></span> Procesando...`;
+                showToast(`¡Pedido realizado con éxito!\nFOLIO: ${res.folio}\nSUCURSAL: ${nombreSucursal(res.sucursal)}`, "success", 6000);
 
-                const payload = {
-                    action: "crearPedido",
-                    folio: nuevoFolio,
-                    cliente: nom,
-                    correo: sesionUsuario.correo,
-                    domicilio: dom,
-                    productos: arrProdStr,
-                    metodo_pago: pago,
-                    total: totalGeneral,
-                    cupon: cuponAplicado ? cuponAplicado.codigo : "",
-                    descuento: descuentoVal,
-                    sucursal: sucursalSeleccionada,
-                    carrito: Object.values(carrito),
-                    receta: archivoBase64,
-                    fecha: new Date().toLocaleString(),
-                    estado: "Pendiente"
-                };
+                document.getElementById("txtRastreoFolio").value = res.folio;
+                construirGraficoTicket(res, nom, dom);
 
-                const pedidosActuales = JSON.parse(localStorage.getItem("pedidos_realizados") || "[]");
-                pedidosActuales.push(payload);
-                localStorage.setItem("pedidos_realizados", JSON.stringify(pedidosActuales));
-
-                if(SCRIPT_URL) {
-                    fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    }).catch(() => {});
-                }
-
-                showToast(`¡Pedido realizado con éxito!\nFOLIO: ${nuevoFolio}\nSUCURSAL: ${sucursalSeleccionada}`, "success");
-                
-                localStorage.setItem('reorder_' + nuevoFolio, JSON.stringify(carrito));
-                
-                document.getElementById("txtRastreoFolio").value = nuevoFolio;
-                construirGraficoTicket(nuevoFolio, nom, dom, subtotalGen, descuentoVal, totalGeneral);
-                
                 carrito = {};
                 cuponAplicado = null;
                 document.getElementById("lblInfoCupon").style.display = "none";
-                inputReceta.value = ""; 
+                inputReceta.value = "";
                 actualizarGraficosCarrito();
                 abrirModalRastreo();
                 consultarRastreoInterno();
                 await descargarCatalogo();
-                
-                btnConfirm.disabled = false;
-                btnConfirm.innerText = "🚀 Confirmar y Enviar Pedido";
-            } catch(err) { 
+            } catch(err) {
                 console.error(err);
-                showToast("Error al procesar la orden: " + err.message, "danger"); 
+                showToast("Error al procesar la orden: " + err.message, "danger", 6000);
+            } finally {
                 btnConfirm.disabled = false;
                 btnConfirm.innerText = "🚀 Confirmar y Enviar Pedido";
             }
         }
 
-        function construirGraficoTicket(folio, nom, dom, subtotal, descuento, total) {
+        function construirGraficoTicket(res, nom, dom) {
             document.getElementById("ticketBlock").style.display = "block";
             const ticket = document.getElementById("generatedTicket");
             ticket.style.display = "block";
-            
+
             let html = `
                 <div style="text-align:center; font-family:var(--serif); font-weight:600; font-size:17px; color:#57cf82; text-shadow:0 0 10px rgba(74, 222, 128, 0.3);">Mi Farmacia</div>
-                <div style="text-align:center; font-size:11px; margin-bottom:10px; color:#94a3b8;">COMPROBANTE DIGITAL - SUCURSAL ${sucursalSeleccionada.toUpperCase()}</div>
+                <div style="text-align:center; font-size:11px; margin-bottom:10px; color:#94a3b8;">COMPROBANTE DIGITAL - SUCURSAL ${esc(nombreSucursal(res.sucursal)).toUpperCase()}</div>
                 <hr style="border:1px dashed rgba(74, 222, 128, 0.4); margin:8px 0;">
-                <p><b>FOLIO:</b> ${folio}</p>
-                <p><b>PACIENTE:</b> ${nom}</p>
-                <p><b>DESTINO:</b> ${dom}</p>
-                <p><b>FECHA:</b> ${new Date().toLocaleString()}</p>
+                <p><b>FOLIO:</b> ${esc(res.folio)}</p>
+                <p><b>PACIENTE:</b> ${esc(nom)}</p>
+                <p><b>DESTINO:</b> ${esc(dom)}</p>
+                <p><b>FECHA:</b> ${new Date(res.fecha || Date.now()).toLocaleString('es-MX')}</p>
                 <hr style="border:1px dashed rgba(74, 222, 128, 0.4); margin:8px 0;">
                 <div style="font-weight: bold; margin-bottom: 6px;">PRODUCTOS:</div>
             `;
-            Object.values(carrito).forEach(x => {
-                html += `<div style="font-size:11px; margin-bottom: 3px;">• ${x.name} (${x.qty}pz) - $${(x.price*x.qty).toFixed(2)}</div>`;
+            (res.items || []).forEach(x => {
+                html += `<div style="font-size:11px; margin-bottom: 3px;">• ${esc(x.nombre)} (${x.cantidad}pz) - $${(Number(x.precio) * x.cantidad).toFixed(2)}</div>`;
             });
             html += `<hr style="border:1px dashed rgba(74, 222, 128, 0.4); margin:8px 0;">`;
-            html += `<div style="font-size:11px;">Subtotal: $${subtotal.toFixed(2)}</div>`;
-            if(descuento > 0) {
-                html += `<div style="font-size:11px; color:#57cf82;">Descuento (${cuponAplicado ? cuponAplicado.codigo : 'Cupón'}): -$${descuento.toFixed(2)}</div>`;
+            html += `<div style="font-size:11px;">Subtotal: $${Number(res.subtotal).toFixed(2)}</div>`;
+            if(Number(res.descuento) > 0) {
+                html += `<div style="font-size:11px; color:#57cf82;">Descuento (${esc(res.cupon || 'Cupón')}): -$${Number(res.descuento).toFixed(2)}</div>`;
             }
-            html += `<h3 style="text-align:right; margin-top:6px; color:#57cf82; font-size:16px;">TOTAL: $${total.toFixed(2)}</h3>`;
+            html += `<h3 style="text-align:right; margin-top:6px; color:#57cf82; font-size:16px;">TOTAL: $${Number(res.total).toFixed(2)}</h3>`;
             ticket.innerHTML = html;
         }
 
@@ -2487,16 +2702,21 @@
         }
 
         function abrirModalRastreo() { document.getElementById("modalRastreo").classList.add("active"); }
-        function cerrarModalRastreo() { document.getElementById("modalRastreo").classList.remove("active"); }
-        function abrirModalHistorial() { 
-            document.getElementById("modalHistorial").classList.add("active"); 
+        function cerrarModalRastreo() {
+            document.getElementById("modalRastreo").classList.remove("active");
+            detenerRastreoEnVivo();
+        }
+        function abrirModalHistorial() {
+            document.getElementById("modalHistorial").classList.add("active");
             cargarHistorialPedidos();
         }
         function cerrarModalHistorial() { document.getElementById("modalHistorial").classList.remove("active"); }
         function abrirCarrito() { document.getElementById("modalCarrito").classList.add("active"); }
         function cerrarCarrito() { document.getElementById("modalCarrito").classList.remove("active"); }
 
+        /* ---------------- PERFIL (antes: action=actualizarPerfil) ---------------- */
         async function guardarDatosPerfilServidor(silente = false) {
+            if (!sesionUsuario) return;
             const tel = document.getElementById("txtPrefTelefono").value.trim();
             const dir = document.getElementById("txtPrefDireccion").value.trim();
             const fav = document.getElementById("txtPrefFavoritos").value.trim();
@@ -2508,19 +2728,20 @@
             }
 
             try {
-                const payload = { action: "actualizarPerfil", correo: sesionUsuario.correo, telefono: tel, direccion: dir, favoritos: fav };
-                const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const data = await res.json();
-                
-                if (data.error) throw new Error(data.error);
+                const { error } = await sb.from("clientes")
+                    .update({ telefono: tel, direccion: dir, favoritos: fav })
+                    .eq("id", sesionUsuario.id);
+                if (error) throw error;
 
                 if(!silente) showToast("Perfil actualizado correctamente.", "success");
                 sesionUsuario.telefono = tel;
                 sesionUsuario.direccion = dir;
                 sesionUsuario.favoritos = fav;
-                localStorage.setItem("farma_user", JSON.stringify(sesionUsuario));
                 autoacomodarCamposPerfil();
-            } catch(e) { if(!silente) showToast("Error al actualizar perfil.", "danger"); }
+            } catch(e) {
+                console.error(e);
+                if(!silente) showToast("Error al actualizar perfil.", "danger");
+            }
             finally {
                 if(!silente && btn) {
                     btn.disabled = false;
@@ -2539,60 +2760,112 @@
             }
         }
 
-        function abrirModalAuth() {
+        /* ---------------- SESIÓN (Supabase Auth) ---------------- */
+        function limpiarSesionUI(mostrarAviso = true) {
+            sesionUsuario = null;
+            document.getElementById("lblSaludo").innerText = "Invitado";
+            document.getElementById("btnAuth").innerText = "Iniciar Sesión";
+            document.getElementById("btnCarrito").style.display = "none";
+            document.getElementById("checkoutForm").style.display = "none";
+            document.getElementById("checkoutAnonMessage").style.display = "block";
+            document.getElementById("btnPerfilToggle").style.display = "none";
+            document.getElementById("btnPedidos").style.display = "none";
+            document.getElementById("btnHistorialHeader").style.display = "none";
+            document.getElementById("panelPerfilCliente").style.display = "none";
+            document.getElementById("historialPedidosContainer").innerHTML = "Inicia sesión y presiona actualizar para ver tus pedidos.";
+            carrito = {};
+            cuponAplicado = null;
+            historialCache = {};
+            detenerRastreoEnVivo();
+            actualizarGraficosCarrito();
+            filtrarCatalogoCompleto();
+            if (mostrarAviso) showToast("Has cerrado sesión exitosamente.", "info");
+        }
+
+        async function abrirModalAuth() {
             if(sesionUsuario) {
-                localStorage.removeItem("farma_user");
-                sesionUsuario = null;
-                document.getElementById("lblSaludo").innerText = "Invitado";
-                document.getElementById("btnAuth").innerText = "Iniciar Sesión";
-                document.getElementById("btnCarrito").style.display = "none";
-                document.getElementById("checkoutForm").style.display = "none";
-                document.getElementById("checkoutAnonMessage").style.display = "block";
-                document.getElementById("btnPerfilToggle").style.display = "none";
-                document.getElementById("btnPedidos").style.display = "none";
-                document.getElementById("btnHistorialHeader").style.display = "none";
-                document.getElementById("panelPerfilCliente").style.display = "none";
-                document.getElementById("historialPedidosContainer").innerHTML = "Inicia sesión y presiona actualizar para ver tus pedidos.";
-                carrito = {};
-                cuponAplicado = null;
-                actualizarGraficosCarrito();
-                showToast("Has cerrado sesión exitosamente.", "info");
+                try { await sb.auth.signOut(); } catch(e) {}
+                limpiarSesionUI(true);
                 return;
             }
+            conmutarAuthView(false);
             document.getElementById("modalAuth").style.display = "flex";
         }
-        
+
         function cerrarModalAuth() { document.getElementById("modalAuth").style.display = "none"; }
-        
+
+        function ponerTituloAuth(texto) {
+            document.getElementById("authTitle").innerHTML = `<span>${texto}</span><button class="panel-close-btn" onclick="cerrarModalAuth()">✕</button>`;
+        }
+
         function conmutarAuthView(verRegistro) {
             document.getElementById("loginFields").style.display = verRegistro ? "none" : "block";
             document.getElementById("registerFields").style.display = verRegistro ? "block" : "none";
-            document.getElementById("authTitle").innerHTML = `<span>${verRegistro ? "📝 Registro de Paciente Nuevo" : "🔐 Autenticación de Paciente"}</span><button class="panel-close-btn" onclick="cerrarModalAuth()">✕</button>`;
+            document.getElementById("verifyFields").style.display = "none";
+            ponerTituloAuth(verRegistro ? "📝 Registro de Paciente Nuevo" : "🔐 Autenticación de Paciente");
+        }
+
+        function mostrarVerificacion(correo) {
+            correoPendienteVerificacion = correo;
+            document.getElementById("loginFields").style.display = "none";
+            document.getElementById("registerFields").style.display = "none";
+            document.getElementById("verifyFields").style.display = "block";
+            document.getElementById("lblCorreoVerificacion").innerText = correo;
+            document.getElementById("verifyCodigo").value = "";
+            ponerTituloAuth("📧 Verifica tu correo");
+            document.getElementById("modalAuth").style.display = "flex";
+            setTimeout(() => document.getElementById("verifyCodigo").focus(), 50);
+        }
+
+        async function cargarPerfilYEntrar(user) {
+            let perfil = null;
+            try {
+                const { data } = await sb.from("clientes").select("*").eq("id", user.id).maybeSingle();
+                perfil = data;
+            } catch(e) { console.warn(e); }
+
+            const meta = user.user_metadata || {};
+            establecerSesion({
+                id: user.id,
+                nombre: (perfil && perfil.nombre) || meta.nombre || (user.email || "").split("@")[0],
+                correo: user.email,
+                telefono: perfil ? perfil.telefono : "",
+                direccion: perfil ? perfil.direccion : "",
+                favoritos: perfil ? perfil.favoritos : ""
+            });
         }
 
         async function ejecutarIngresoBase() {
-            const em = document.getElementById("loginEmail").value.trim();
-            const pas = document.getElementById("loginPass").value.trim();
+            const em = document.getElementById("loginEmail").value.trim().toLowerCase();
+            const pas = document.getElementById("loginPass").value;
             const btn = document.getElementById("btnEjecutarIngreso");
+
+            if(!em || !pas) { showToast("Escribe tu correo y contraseña.", "warning"); return; }
 
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner"></span> Ingresando...`;
 
             try {
-                const res = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: "login", correo: em, password: pas })
-                });
-                const data = await res.json();
+                const { data, error } = await sb.auth.signInWithPassword({ email: em, password: pas });
 
-                if(data.error) {
-                    showToast(data.error, "danger");
-                } else {
-                    showToast("¡Bienvenido " + data.nombre + "!", "success");
-                    establecerSesion(data);
-                    cerrarModalAuth();
+                if(error) {
+                    if ((error.message || "").toLowerCase().includes("email not confirmed")) {
+                        await sb.auth.resend({ type: "signup", email: em });
+                        showToast("Tu correo aún no está verificado. Te enviamos un código nuevo.", "warning", 6000);
+                        mostrarVerificacion(em);
+                    } else {
+                        showToast(traducirErrorAuth(error.message), "danger");
+                    }
+                    return;
                 }
-            } catch(e) { showToast("Error al iniciar sesión.", "danger"); }
+
+                await cargarPerfilYEntrar(data.user);
+                showToast("¡Bienvenido " + sesionUsuario.nombre + "!", "success");
+                cerrarModalAuth();
+            } catch(e) {
+                console.error(e);
+                showToast("Error al iniciar sesión.", "danger");
+            }
             finally {
                 btn.disabled = false;
                 btn.innerHTML = `Ingresar al Sistema`;
@@ -2601,27 +2874,38 @@
 
         async function ejecutarRegistroBase() {
             const nom = document.getElementById("regNombre").value.trim();
-            const em = document.getElementById("regEmail").value.trim();
-            const pas = document.getElementById("regPass").value.trim();
+            const em = document.getElementById("regEmail").value.trim().toLowerCase();
+            const pas = document.getElementById("regPass").value;
             const btn = document.getElementById("btnEjecutarRegistro");
-            
+
             if(!nom || !em || !pas) { showToast("Completa todos los campos.", "warning"); return; }
+            if(pas.length < 6) { showToast("La contraseña debe tener al menos 6 caracteres.", "warning"); return; }
 
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner"></span> Registrando...`;
 
             try {
-                const res = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: "registro", nombre: nom, correo: em, password: pas })
+                const { data, error } = await sb.auth.signUp({
+                    email: em,
+                    password: pas,
+                    options: { data: { nombre: nom } }
                 });
-                const data = await res.json();
+                if(error) throw new Error(traducirErrorAuth(error.message));
 
-                if(data.error) throw new Error(data.error);
+                // Supabase no marca error si el correo ya existía (por seguridad): lo detectamos así
+                if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+                    throw new Error("Ese correo ya está registrado. Inicia sesión.");
+                }
 
-                showToast("¡Cuenta creada exitosamente!", "success");
-                establecerSesion(data);
-                cerrarModalAuth();
+                if (data.session) {
+                    // "Confirm email" desactivado en Supabase: entra directo
+                    await cargarPerfilYEntrar(data.user);
+                    showToast("¡Cuenta creada exitosamente!", "success");
+                    cerrarModalAuth();
+                } else {
+                    showToast("Te enviamos un código de 6 dígitos a tu correo.", "info", 6000);
+                    mostrarVerificacion(em);
+                }
             } catch(e) { showToast("Error al registrarse: " + e.message, "danger"); }
             finally {
                 btn.disabled = false;
@@ -2629,9 +2913,39 @@
             }
         }
 
+        async function ejecutarVerificacionCodigo() {
+            const codigo = document.getElementById("verifyCodigo").value.replace(/\D/g, "");
+            const btn = document.getElementById("btnVerificarCodigo");
+            if (codigo.length < 6) { showToast("Escribe el código de 6 dígitos que llegó a tu correo.", "warning"); return; }
+
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner"></span> Verificando...`;
+            try {
+                let { data, error } = await sb.auth.verifyOtp({ email: correoPendienteVerificacion, token: codigo, type: "email" });
+                if (error) {
+                    ({ data, error } = await sb.auth.verifyOtp({ email: correoPendienteVerificacion, token: codigo, type: "signup" }));
+                }
+                if (error) throw new Error(traducirErrorAuth(error.message));
+
+                await cargarPerfilYEntrar(data.user);
+                showToast("¡Correo verificado! Bienvenido " + sesionUsuario.nombre + ".", "success");
+                cerrarModalAuth();
+            } catch(e) { showToast(e.message, "danger"); }
+            finally {
+                btn.disabled = false;
+                btn.innerHTML = `Verificar código`;
+            }
+        }
+
+        async function reenviarCodigoVerificacion() {
+            if (!correoPendienteVerificacion) return;
+            const { error } = await sb.auth.resend({ type: "signup", email: correoPendienteVerificacion });
+            if (error) showToast(traducirErrorAuth(error.message), "danger");
+            else showToast("Código reenviado. Revisa también tu carpeta de spam.", "success");
+        }
+
         function establecerSesion(usr) {
             sesionUsuario = usr;
-            localStorage.setItem("farma_user", JSON.stringify(usr));
             document.getElementById("lblSaludo").innerText = `Paciente: ${usr.nombre}`;
             document.getElementById("btnAuth").innerText = "🔒 Salir";
             document.getElementById("btnCarrito").style.display = "block";
@@ -2641,11 +2955,14 @@
             document.getElementById("btnPedidos").style.display = "block";
             document.getElementById("btnHistorialHeader").style.display = "block";
             autoacomodarCamposPerfil();
+            filtrarCatalogoCompleto();
         }
 
-        function verificarCacheSesion() {
-            let cache = localStorage.getItem("farma_user");
-            if(cache) establecerSesion(JSON.parse(cache));
+        async function verificarCacheSesion() {
+            try {
+                const { data } = await sb.auth.getSession();
+                if (data && data.session && data.session.user) await cargarPerfilYEntrar(data.session.user);
+            } catch(e) { console.warn(e); }
         }
 
         /* --- VITRINA DE MARCAS DE TEMPORADA: click en un logo abre su info --- */
@@ -2669,17 +2986,17 @@
         document.addEventListener('keydown', function(e){
             if(e.key === 'Escape'){
                 document.querySelectorAll('.modal-overlay-custom.active').forEach(function(m){ m.classList.remove('active'); });
+                detenerRastreoEnVivo();
             }
         });
 
         /* --- PROMOCIONES DE TEMPORADA ---
-           Para activar esta sección desde tu backend (Sheet/Supabase),
-           agrega a cada producto en promoción:
-             - promocion: true  (o "si" / 1)
-             - precio_anterior: <número>  (opcional, para mostrar el % de descuento)
-           Si ningún producto trae "promocion" en verdadero, la sección
-           se mantiene oculta sola, sin romper nada. */
+           Se llenan solas con los productos que tengan "promocion" activado
+           en la tabla productos de Supabase. Si además tienen "precio_anterior",
+           se calcula el % de descuento. Si ninguno está en promoción, la
+           sección se oculta sola. */
         function esPromocion(p){
+            if (p.promocion === true) return true;
             var val = (p.promocion !== undefined && p.promocion !== null) ? p.promocion.toString().toLowerCase().trim() : '';
             return val === 'true' || val === '1' || val === 'si' || val === 'sí' || val === 'yes';
         }
@@ -2697,22 +3014,22 @@
                 var anterior = Number(p.precio_anterior) || 0;
                 var tieneDescuento = anterior > precio;
                 var pct = tieneDescuento ? Math.round((1 - precio / anterior) * 100) : 0;
-                var pImagen = p.imagen && p.imagen.trim() !== '' ? p.imagen : 'https://via.placeholder.com/150';
+                var pImagen = imagenProducto(p);
                 var stockVal = p.stock !== null && p.stock !== undefined && !isNaN(p.stock) ? Number(p.stock) : 0;
-                var nombreEscapado = (p.nombre || '').replace(/'/g, "\\'");
+                var cod = jsStr(p.codigo);
 
                 return '' +
                     '<div class="promo-card">' +
                         (tieneDescuento
                             ? '<span class="promo-badge">-' + pct + '%</span>'
                             : '<span class="promo-badge promo-badge-flat">OFERTA</span>') +
-                        '<img src="' + pImagen + '" onerror="this.src=\'https://via.placeholder.com/150\'" alt="' + (p.nombre || '') + '" onclick="abrirQuickView(\'' + p.codigo + '\')" style="cursor:pointer;">' +
-                        '<h4 onclick="abrirQuickView(\'' + p.codigo + '\')" style="cursor:pointer;">' + (p.nombre || 'Sin nombre') + '</h4>' +
+                        '<img src="' + esc(pImagen) + '" onerror="this.onerror=null;this.src=IMG_PLACEHOLDER" alt="' + esc(p.nombre || '') + '" onclick="abrirQuickView(\'' + cod + '\')" style="cursor:pointer;" loading="lazy">' +
+                        '<h4 onclick="abrirQuickView(\'' + cod + '\')" style="cursor:pointer;">' + esc(p.nombre || 'Sin nombre') + '</h4>' +
                         '<div class="promo-price-row">' +
                             '<span class="promo-price">$' + precio.toFixed(2) + '</span>' +
                             (tieneDescuento ? '<span class="promo-price-old">$' + anterior.toFixed(2) + '</span>' : '') +
                         '</div>' +
-                        '<button class="btn" ' + (stockVal <= 0 ? 'disabled' : '') + ' onclick="meterAlCarrito(\'' + p.codigo + '\', \'' + nombreEscapado + '\', ' + precio + ')">🛒 Agregar</button>' +
+                        '<button class="btn" ' + (stockVal <= 0 ? 'disabled' : '') + ' onclick="meterAlCarrito(\'' + cod + '\', \'' + jsStr(p.nombre) + '\', ' + precio + ')">🛒 Agregar</button>' +
                     '</div>';
             }).join('');
         }
