@@ -872,10 +872,10 @@ img{max-width:none}
 </div>
 
 <!-- ============================================================
-     PROMOCIONES: si configuraste OFERTAS_CSV_URL (al final del archivo,
-     en el <script>), estas tarjetas se reemplazan automáticamente por
-     las ofertas de tu Google Sheets, con su imagen publicitaria.
-     Las de abajo solo se ven si no hay hoja configurada.
+     PROMOCIONES: si configuraste SUPABASE_URL y SUPABASE_ANON_KEY (al final
+     del archivo, en el <script>), estas tarjetas se reemplazan automáticamente
+     por las ofertas de la tabla ofertas_landing de Supabase.
+     Las de abajo solo se ven si no hay conexión configurada.
 
      PARA AGREGAR/CAMBIAR UNA PROMOCIÓN:
        1) Copia un bloque completo <div class="promo-landing-card">...</div>
@@ -1245,33 +1245,19 @@ img{max-width:none}
 })();
 
 /* ============================================================
-   OFERTAS DESDE GOOGLE SHEETS
-   1) En tu hoja, ve a Archivo > Compartir > Publicar en la web,
-      elige la pestaña de ofertas y el formato "Valores separados
-      por comas (.csv)". Copia el enlace que te da.
-   2) Pégalo aquí abajo entre las comillas.
-   Si lo dejas vacío (o la hoja falla), se muestran las tarjetas
-   de ejemplo que están escritas en el HTML.
+   OFERTAS DESDE SUPABASE (antes: Google Sheets)
+   Las ofertas se editan en Supabase > Table Editor > ofertas_landing
+   (mismas columnas que tenía la hoja: producto, descripcion, imagen,
+   precio_normal, precio_oferta, etiqueta, vigencia, link, activo, orden).
+   Pega abajo la URL de tu proyecto y la llave pública (anon/publishable),
+   las mismas que usas en la tienda. NUNCA la llave service_role.
+   Si lo dejas vacío (o falla), se muestran las tarjetas de ejemplo
+   que están escritas en el HTML.
    ============================================================ */
-var OFERTAS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTefUZLcVL8otcxvICx0fYcW9Vd-1TspOtK3RBsTde6hVHuZS5LCmq3MZyRxhux0tvpAoWXVz6cvf38/pub?output=csv';
+var SUPABASE_URL = 'https://ivhretmxcnslxvoruwiv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2aHJldG14Y25zbHh2b3J1d2l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDA2NTUsImV4cCI6MjEwNTA3NjY1NX0.nvbMsUgGHxvjySMywLYldA8ok_0oiOa6MvrUIxw18rg';
 
 (function(){
-  function parseCSV(text){
-    var rows=[],row=[],cell='',q=false;
-    for(var i=0;i<text.length;i++){
-      var c=text[i];
-      if(q){
-        if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; }
-        else cell+=c;
-      }else if(c==='"') q=true;
-      else if(c===','){ row.push(cell); cell=''; }
-      else if(c==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
-      else if(c!=='\r') cell+=c;
-    }
-    if(cell!==''||row.length){ row.push(cell); rows.push(row); }
-    return rows;
-  }
-  function norm(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_'); }
   function num(s){ var n=parseFloat(String(s||'').replace(/[^0-9.,]/g,'').replace(/,/g,'')); return isNaN(n)?null:n; }
   function money(n){ return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2}); }
   function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
@@ -1279,20 +1265,6 @@ var OFERTAS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTefUZLcV
     url=String(url||'').trim();
     var m=url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
     return m ? 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w1000' : url;
-  }
-  // Acepta varios tipos de enlace de Google Sheets y los convierte a CSV
-  function fixSheetUrl(u){
-    u=String(u||'').trim();
-    // Enlace "Publicar en la web" en formato página (pubhtml) -> CSV
-    if(/\/spreadsheets\/d\/e\/[^/]+\/pubhtml/.test(u)) return u.replace(/\/pubhtml.*$/,'/pub?output=csv');
-    if(/\/spreadsheets\/d\/e\/[^/]+\/pub(\?|$)/.test(u) && !/output=csv/.test(u)) return u+(u.indexOf('?')>-1?'&':'?')+'output=csv';
-    // Enlace normal de edición (/edit...) -> CSV (la hoja debe estar compartida como "Cualquier persona con el enlace")
-    var m=u.match(/\/spreadsheets\/d\/([\w-]{20,})/);
-    if(m && !/\/d\/e\//.test(u)){
-      var g=u.match(/[#&?]gid=(\d+)/);
-      return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv'+(g?'&gid='+g[1]:'');
-    }
-    return u;
   }
   function card(o,logo){
     var antes=num(o.precio_normal), ahora=num(o.precio_oferta);
@@ -1321,31 +1293,23 @@ var OFERTAS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTefUZLcV
     return el;
   }
   window.mfPromosListas = new Promise(function(resolve){
-    if(!OFERTAS_CSV_URL){ resolve(); return; }
+    if(!SUPABASE_URL || !SUPABASE_ANON_KEY || /TU-PROYECTO|TU_LLAVE/.test(SUPABASE_URL+SUPABASE_ANON_KEY)){ resolve(); return; }
     var grid=document.getElementById('promoLandingGrid');
     var logoEl=document.querySelector('.brand img'); var logo=logoEl?logoEl.src:'';
     var timer=setTimeout(resolve,6000);
-    var url=fixSheetUrl(OFERTAS_CSV_URL);
-    if(location.protocol==='file:' && !/^https?:/i.test(url)){
-      console.warn('[Ofertas] Abriste el archivo con doble clic (file://). Para leer un CSV local usa Live Server en VS Code, o usa el enlace publicado de Google Sheets.');
-    }
-    console.info('[Ofertas] Leyendo:', url);
-    fetch(url,{cache:'no-store'}).then(function(r){ if(!r.ok) throw new Error('La hoja respondió '+r.status+' (¿está publicada en la web?)'); return r.text(); }).then(function(txt){
-      if(/^\s*<(!doctype|html)/i.test(txt)) throw new Error('El enlace devolvió una página web, no un CSV. Usa Archivo > Compartir > Publicar en la web > formato .csv');
-      var rows=parseCSV(txt).filter(function(r){ return r.some(function(c){return c.trim();}); });
-      if(rows.length<2) return;
-      var head=rows[0].map(norm), list=[];
-      rows.slice(1).forEach(function(r){
-        var o={}; head.forEach(function(h,i){ o[h]=(r[i]||'').trim(); });
-        var act=norm(o.activo);
-        if(!o.producto || act==='no' || act==='0' || act==='false') return;
-        list.push(o);
+    var url=SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/ofertas_landing?select=*&activo=eq.true&order=orden.asc,id.asc';
+    fetch(url,{cache:'no-store',headers:{apikey:SUPABASE_ANON_KEY,Accept:'application/json'}}).then(function(r){
+      if(!r.ok) throw new Error('Supabase respondió '+r.status+' (revisa la URL y la llave)');
+      return r.json();
+    }).then(function(list){
+      list=(list||[]).filter(function(o){ return o && o.producto; }).map(function(o){
+        var x={}; Object.keys(o).forEach(function(k){ x[k]=o[k]==null?'':String(o[k]); }); return x;
       });
-      if(!list.length){ console.warn('[Ofertas] La hoja no tiene filas activas (revisa la columna "producto" y que "activo" diga SI).'); return; }
+      if(!list.length){ console.warn('[Ofertas] No hay ofertas activas en la tabla ofertas_landing.'); return; }
       console.info('[Ofertas] Cargadas', list.length, 'ofertas');
       grid.innerHTML='';
       list.forEach(function(o){ grid.appendChild(card(o,logo)); });
-    }).catch(function(err){ console.error('[Ofertas] No se pudo cargar la hoja:', err && err.message ? err.message : err); }).then(function(){ clearTimeout(timer); resolve(); });
+    }).catch(function(err){ console.error('[Ofertas] No se pudieron cargar:', err && err.message ? err.message : err); }).then(function(){ clearTimeout(timer); resolve(); });
   });
 })();
 
