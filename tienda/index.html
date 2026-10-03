@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
-    <title>MiFarmacia - TU FARMACIA DIGITAL</title>
+    <title>MiFarmacia - NEO HEALTH APP</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1917,6 +1917,13 @@
 
             await descargarCatalogo();
             await verificarCacheSesion();
+
+            // Enlace "Ver mi pedido" de los correos: ?folio=FH-123
+            const folioUrl = new URLSearchParams(location.search).get("folio");
+            if (folioUrl) {
+                verEsteFolio(folioUrl.trim().toUpperCase());
+                history.replaceState(null, "", location.pathname);
+            }
 
             sb.auth.onAuthStateChange((event) => {
                 if (event === "SIGNED_OUT" && sesionUsuario) limpiarSesionUI(false);
