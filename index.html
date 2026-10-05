@@ -575,6 +575,19 @@ img{max-width:none}
 .section-wrap{position:relative;max-width:1180px;margin:0 auto;padding:0 clamp(24px,5vw,56px)}
 
 /* ---------- Nosotros ---------- */
+/* ---------- Folleto del mes ---------- */
+.folleto{position:relative;padding:clamp(64px,9vw,120px) 0;background:#050505;border-top:1px solid rgba(255,255,255,.07);text-align:center;overflow:hidden}
+.folleto::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 70% at 50% 45%, rgba(35,150,90,.16), transparent 70%)}
+.folleto .section-wrap{position:relative}
+.folleto-img{display:block;width:min(520px,100%);margin:clamp(28px,4vw,40px) auto 0;border-radius:22px;overflow:hidden;
+  border:1px solid rgba(255,255,255,.10);box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 60px rgba(35,150,90,.18);
+  transition:transform .35s var(--ease),box-shadow .35s var(--ease)}
+.folleto-img:hover{transform:translateY(-4px);box-shadow:0 36px 90px rgba(0,0,0,.6),0 0 80px rgba(35,150,90,.28)}
+.folleto-img img{display:block;width:100%;height:auto;max-width:100%}
+.folleto-actions{margin-top:clamp(24px,3.5vw,34px);display:flex;justify-content:center}
+.folleto-btn{gap:10px;background:#1a9c56;color:#fff}
+.folleto-btn:hover{background:#13803f}
+.folleto-btn svg{width:18px;height:18px}
 .about{position:relative;padding:clamp(64px,9vw,120px) 0;background:#050505;border-top:1px solid rgba(255,255,255,.07);overflow:hidden}
 .about::before{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -779,6 +792,24 @@ img{max-width:none}
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 01-12.4 7.55L4 20l1.02-4.46A8.5 8.5 0 1121 11.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 10.5c0 3 2.5 5.5 5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
 </a>
 
+<section class="folleto" id="folleto" aria-label="Folleto del mes" hidden>
+  <!-- El título, la imagen y el enlace se cambian desde el programa del personal:
+       Ofertas de la web → 📰 Folleto del mes (se guardan en Supabase, tabla configuracion). -->
+  <div class="section-wrap">
+    <p class="brands-eyebrow">Folleto del mes</p>
+    <h2 class="brands-title" id="folletoTitulo">Mi Farmacia recomienda</h2>
+    <a class="folleto-img" id="folletoImgLink" href="#" target="_blank" rel="noopener noreferrer" aria-label="Abrir el folleto digital">
+      <img id="folletoImg" alt="Folleto Mi Farmacia recomienda" decoding="async">
+    </a>
+    <div class="folleto-actions">
+      <a class="closing-cta folleto-btn" id="folletoBtn" href="#" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 015.5 4H11v16H5.5A1.5 1.5 0 014 18.5v-13zM13 4h5.5A1.5 1.5 0 0120 5.5v13a1.5 1.5 0 01-1.5 1.5H13V4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Ver folleto digital</span>
+      </a>
+    </div>
+  </div>
+</section>
+
 <section class="about" id="nosotros" aria-label="Nosotros">
   <div class="section-wrap">
     <p class="brands-eyebrow">Nosotros</p>
@@ -981,8 +1012,8 @@ img{max-width:none}
     <div class="locations-grid">
       <div class="location-card">
         <p class="location-name">Mi Farmacia — Sur 16</p>
-        <p class="location-line is-placeholder">[C. Ote. 245 275, Agrícola Oriental, Iztacalco, 08500 Ciudad de México, CDMX]</p>
-        <p class="location-line is-placeholder">[lunes-viernes 7:00AM-10:00PM sabado 8:00AM-10:00PM domingo 9:00AM-9:00PM]</p>
+        <p class="location-line is-placeholder">[Agrega aquí la dirección de la sucursal]</p>
+        <p class="location-line is-placeholder">[Agrega aquí el horario, ej. Lun a Dom 8:00–22:00]</p>
         <a class="location-link" href="https://www.google.com/maps/search/?api=1&query=Mi+Farmacia" target="_blank" rel="noopener noreferrer">
           Cómo llegar
           <svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1311,6 +1342,32 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
       list.forEach(function(o){ grid.appendChild(card(o,logo)); });
     }).catch(function(err){ console.error('[Ofertas] No se pudieron cargar:', err && err.message ? err.message : err); }).then(function(){ clearTimeout(timer); resolve(); });
   });
+})();
+
+/* ---------- Folleto del mes (se edita desde el programa del personal) ---------- */
+(function(){
+  var RESPALDO = { folleto_activo:true, folleto_titulo:'Mi Farmacia recomienda · octubre 2026',
+                   folleto_imagen:'folleto.jpg', folleto_url:'https://www.flipbookpdf.net/web/site/36471766c9135ba53e6759b56513f048dbf7539eFBP34373183.pdf.html' };
+  var sec=document.getElementById('folleto');
+  function mostrar(c){
+    if(!c || c.folleto_activo===false || !c.folleto_imagen || !c.folleto_url){ sec.hidden=true; return; }
+    var url=String(c.folleto_url).trim();
+    if(!/^https?:\/\//i.test(url)){ sec.hidden=true; return; }
+    var titulo=String(c.folleto_titulo||'Mi Farmacia recomienda');
+    document.getElementById('folletoTitulo').textContent=titulo;
+    var img=document.getElementById('folletoImg');
+    img.src=String(c.folleto_imagen).trim();
+    img.alt='Folleto '+titulo;
+    document.getElementById('folletoImgLink').href=url;
+    document.getElementById('folletoBtn').href=url;
+    sec.hidden=false;
+  }
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY || /TU-PROYECTO|TU_LLAVE/.test(SUPABASE_URL+SUPABASE_ANON_KEY)){ mostrar(RESPALDO); return; }
+  var url=SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/configuracion?select=folleto_activo,folleto_titulo,folleto_imagen,folleto_url&id=eq.1';
+  fetch(url,{cache:'no-store',headers:{apikey:SUPABASE_ANON_KEY,Accept:'application/json'}})
+    .then(function(r){ if(!r.ok) throw new Error('Supabase respondió '+r.status); return r.json(); })
+    .then(function(rows){ mostrar(rows && rows[0] && 'folleto_imagen' in rows[0] ? rows[0] : RESPALDO); })
+    .catch(function(err){ console.error('[Folleto]', err && err.message ? err.message : err); mostrar(RESPALDO); });
 })();
 
 (function(){
