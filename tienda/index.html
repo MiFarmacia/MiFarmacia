@@ -3097,14 +3097,14 @@
 
         /* ============================================================
            MAPAS: ubicación de entrega + repartidor en vivo
-           (OpenStreetMap con estilo CARTO; Leaflet se carga solo al usarlo)
+           (mapas de OpenStreetMap, gratis y sin llave; Leaflet se carga solo al usarlo)
            ============================================================ */
         let ubicacionPedido = null;          // {lat, lng} que se manda con el pedido
         let modoSelectorUbic = "pedido";     // "pedido" o "perfil"
         let mapaUbic = null, mapaRastreo = null, motoRastreo = null, casaRastreo = null;
         let rastreoTimer = null, rastreoFolio = null, rastreoEncuadrado = false;
         const CENTRO_MX = [19.4326, -99.1332];
-        const TEXTO_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/" target="_blank" rel="noopener">CARTO</a>';
+        const TEXTO_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
         let promesaLeaflet = null;
         function cargarLeaflet() {
@@ -3122,8 +3122,8 @@
             return promesaLeaflet;
         }
         function capaMapa() {
-            return L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-                { maxZoom: 19, subdomains: "abcd", attribution: TEXTO_OSM });
+            return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                { maxZoom: 19, attribution: TEXTO_OSM });
         }
         function distanciaM(a, b) {
             const R = 6371000, r = x => x * Math.PI / 180;
@@ -3191,16 +3191,37 @@
                 { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
         }
 
+        // Busca la dirección; si no la encuentra, prueba versiones más sencillas
+        // (sin "Col.", sin número, solo calle + ciudad, etc.)
+        async function geocodificar(q) {
+            const limpio = q.replace(/\b(col(onia)?|fracc(ionamiento)?|c\.?\s?p\.?|cp)\b\.?/gi, " ").replace(/#/g, " ").replace(/\s+/g, " ").trim();
+            const partes = limpio.split(",").map(x => x.trim()).filter(Boolean);
+            // quita solo el número de la casa (el último número de la calle), no el de calles como "16 Sur"
+            const calle = (partes[0] || "").replace(/\s+(no\.?\s*)?\d+[a-z]?(\s*-\s*\d+[a-z]?)?\s*$/i, "").trim();
+            const intentos = [q, limpio, [calle, ...partes.slice(1)].join(", ")];
+            if (partes.length > 2) intentos.push(calle + ", " + partes[partes.length - 1]);
+            if (partes.length > 1) intentos.push(partes.slice(1).join(", "));
+            const vistos = new Set();
+            for (const t of intentos) {
+                if (!t || t.length < 4 || vistos.has(t.toLowerCase())) continue;
+                vistos.add(t.toLowerCase());
+                const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=mx&accept-language=es&q=" + encodeURIComponent(t);
+                const r = await fetch(url, { headers: { "Accept": "application/json" } });
+                if (!r.ok) continue;
+                const lista = await r.json();
+                if (lista.length) return lista;
+            }
+            return [];
+        }
+
         async function buscarDireccionMapa(primero) {
             const q = document.getElementById("txtBuscarUbic").value.trim();
             const cont = document.getElementById("ubicResultados");
             if (q.length < 4) { if (!primero) showToast("Escribe tu calle, número y colonia.", "warning"); return; }
             cont.innerHTML = `<div style="font-size:12px; color:var(--text-muted);"><span class="spinner" style="border-top-color:var(--primary);"></span> Buscando...</div>`;
             try {
-                const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=mx&accept-language=es&q=" + encodeURIComponent(q);
-                const r = await fetch(url, { headers: { "Accept": "application/json" } });
-                const lista = await r.json();
-                if (!lista.length) { cont.innerHTML = `<div style="font-size:12px; color:var(--text-muted);">No encontramos esa dirección. Mueve el mapa a mano o usa tu ubicación.</div>`; return; }
+                const lista = await geocodificar(q);
+                if (!lista.length) { cont.innerHTML = `<div style="font-size:12px; color:var(--text-muted);">No encontramos esa dirección exacta. Prueba solo con tu colonia y ciudad, mueve el mapa a mano o usa tu ubicación.</div>`; return; }
                 if (primero || lista.length === 1) {
                     mapaUbic.setView([+lista[0].lat, +lista[0].lon], 17);
                     if (lista.length === 1) { cont.innerHTML = ""; return; }
