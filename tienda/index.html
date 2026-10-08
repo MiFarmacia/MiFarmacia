@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
     <title>Mi Farmacia · Tienda en línea</title>
+    <meta name="description" content="Compra en línea en Mi Farmacia: medicamentos, cuidado personal y más. Envío a domicilio o recoge en sucursal.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Mi Farmacia">
+    <meta property="og:title" content="Mi Farmacia · Tienda en línea">
+    <meta property="og:description" content="Medicamentos y cuidado personal con envío a domicilio o para recoger en sucursal.">
+    <meta property="og:url" content="https://mifarmaciamx.com/tienda/">
     <meta name="theme-color" content="#4a3423">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1415,6 +1421,43 @@
         @keyframes vivoPulso{ 0%{ box-shadow:0 0 0 0 rgba(95,211,141,.7);} 70%{ box-shadow:0 0 0 9px rgba(95,211,141,0);} 100%{ box-shadow:0 0 0 0 rgba(95,211,141,0);} }
         .moto-mapa{ font-size:30px; line-height:1; filter:drop-shadow(0 4px 3px rgba(0,0,0,.35)); }
         .casa-mapa{ font-size:26px; line-height:1; filter:drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
+
+        /* ---------- Recoger en sucursal ---------- */
+        .entrega-opciones{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+        .entrega-op{ position:relative; display:flex; align-items:center; gap:8px; padding:12px; border-radius:14px; cursor:pointer;
+            border:1.5px solid #d3c3ab; background:#fffaf2; font-size:13px; font-weight:800; color:var(--text-main); line-height:1.25; }
+        .entrega-op input{ position:absolute; opacity:0; pointer-events:none; }
+        .entrega-op small{ display:block; font-weight:500; font-size:11px; color:var(--text-muted); margin-top:2px; }
+        .entrega-op.activa{ border-color:var(--primary); background:rgba(46,125,82,.08); box-shadow:0 0 0 3px rgba(46,125,82,.12); }
+        .info-recoger{ display:none; margin:-4px 0 14px; padding:12px 14px; border-radius:14px; font-size:12.5px; line-height:1.5;
+            background:linear-gradient(160deg,var(--espresso-2),var(--espresso)); color:var(--crema); }
+        .info-recoger b{ color:#e2c48e; }
+        /* ---------- Carrusel de banners ---------- */
+        .banner-carrusel{ position:relative; border-radius:22px; overflow:hidden; margin:0 0 16px; aspect-ratio:8/3; min-height:150px;
+            box-shadow:0 18px 40px -24px rgba(40,24,12,.8); border:1px solid rgba(90,60,35,.2); background:#5a3d27; }
+        .banner-slide{ position:absolute; inset:0; opacity:0; transition:opacity .7s ease; display:flex; align-items:flex-end; cursor:default;
+            background-size:cover; background-position:center; }
+        .banner-slide.activa{ opacity:1; z-index:1; }
+        .banner-slide.con-enlace{ cursor:pointer; }
+        .banner-slide.sin-imagen{ background-color:#5a3d27; background-image:linear-gradient(110deg,rgba(30,18,10,.72),rgba(30,18,10,.25)),var(--madera); align-items:center; }
+        .banner-texto{ position:relative; padding:18px 22px; max-width:78%; color:var(--crema); }
+        .banner-slide:not(.sin-imagen) .banner-texto{ width:100%; max-width:none; background:linear-gradient(0deg,rgba(25,15,8,.78),rgba(25,15,8,0)); padding-top:40px; }
+        .banner-texto h3{ font-family:var(--serif); font-weight:500; font-size:clamp(20px,3.2vw,34px); line-height:1.1; margin:0 0 4px; }
+        .banner-texto p{ margin:0; font-size:clamp(12px,1.5vw,15px); color:#eadfce; }
+        .banner-texto .btn-banner{ display:inline-block; margin-top:10px; padding:8px 16px; border-radius:30px; font-size:13px; font-weight:800;
+            background:#e2c48e; color:#2b1f17; }
+        .banner-puntos{ position:absolute; z-index:3; right:14px; bottom:12px; display:flex; gap:6px; }
+        .banner-puntos button{ width:8px; height:8px; padding:0; border-radius:8px; border:0; background:rgba(255,250,242,.55); cursor:pointer; transition:width .25s; }
+        .banner-puntos button.activo{ width:22px; background:#e2c48e; }
+        .banner-flecha{ position:absolute; z-index:3; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%; border:0;
+            background:rgba(30,18,10,.45); color:#fff; font-size:18px; cursor:pointer; display:none; }
+        .banner-carrusel:hover .banner-flecha{ display:block; }
+        .banner-flecha.izq{ left:10px; } .banner-flecha.der{ right:10px; }
+        @media (max-width:640px){ .banner-carrusel{ aspect-ratio:16/9; border-radius:18px; } .banner-texto{ max-width:100%; } }
+        /* ---------- Compartir producto ---------- */
+        .qv-compartir{ display:flex; gap:8px; margin-top:12px; }
+        .qv-compartir button{ flex:1; border:1px solid #d3c3ab; background:#fffaf2; color:var(--text-main); border-radius:12px; padding:9px; font-size:12.5px; font-weight:800; cursor:pointer; }
+        .qv-compartir button:hover{ border-color:var(--primary); color:var(--primary); }
     </style>
 </head>
 <body>
@@ -1503,6 +1546,9 @@
 
     <main class="main-container">
         <section class="catalog-section">
+
+            <!-- CARRUSEL DE BANNERS (se administra desde el sistema: Banners de la tienda) -->
+            <div id="bannerCarrusel" class="banner-carrusel" style="display:none" aria-roledescription="carrusel"></div>
             
             <!-- BUSCADOR CON DOCK DE FILTROS BENTO -->
             <div class="search-wrapper">
@@ -1674,6 +1720,10 @@
                 </div>
                 <button id="qvBtnAgregar" class="btn" onclick="">🛒 Agregar</button>
             </div>
+            <div class="qv-compartir">
+                <button type="button" onclick="compartirProducto()">📤 Compartir</button>
+                <button type="button" onclick="copiarEnlaceProducto()">🔗 Copiar enlace</button>
+            </div>
         </div>
     </div>
 
@@ -1738,7 +1788,12 @@
                     <label>Nombre Completo del Paciente</label>
                     <input type="text" id="orderNombre">
                 </div>
-                <div class="input-group">
+                <div class="entrega-opciones" id="entregaOpciones">
+                    <label class="entrega-op activa"><input type="radio" name="tipoEntrega" value="domicilio" checked onchange="cambiarTipoEntrega()">🛵<span>Envío a domicilio<small>Te lo llevamos</small></span></label>
+                    <label class="entrega-op"><input type="radio" name="tipoEntrega" value="sucursal" onchange="cambiarTipoEntrega()">🏪<span>Recoger en sucursal<small id="lblSucRecoger">Pasas por él</small></span></label>
+                </div>
+                <div class="info-recoger" id="infoRecoger"></div>
+                <div class="input-group" id="grupoDomicilio">
                     <label>Domicilio Completo de Entrega</label>
                     <input type="text" id="orderDomicilio">
                 </div>
@@ -1917,6 +1972,7 @@
             return `${h12}:${String(m).padStart(2, "0")} ${suf}`;
         }
         function nombreSucursal(id) { return nombresSucursal[id] || id; }
+        let datosSucursales = {};
 
         function limpiarDatosViejos() {
             // Datos que guardaba la versión con Google Sheets (incluían recetas en base64)
@@ -2082,14 +2138,16 @@
         async function cargarSucursales() {
             if (!sb) return;
             try {
-                const { data, error } = await sb.from("sucursales").select("id,nombre").eq("activa", true).order("orden");
+                const { data, error } = await sb.from("sucursales").select("id,nombre,direccion,telefono").eq("activa", true).order("orden");
                 if (error) throw error;
                 if (!data || !data.length) return;
                 const sel = document.getElementById("globalSucursalSelector");
                 const actual = sel.value;
                 nombresSucursal = {};
+                datosSucursales = {};
                 sel.innerHTML = data.map(s => {
                     nombresSucursal[s.id] = s.nombre;
+                    datosSucursales[s.id] = s;
                     return `<option value="${esc(s.id)}">${esc(s.nombre)}</option>`;
                 }).join("");
                 sel.value = data.some(s => s.id === actual) ? actual : data[0].id;
@@ -2107,6 +2165,7 @@
             }
 
             await Promise.all([sincronizarConfiguracionHorario(), cargarSucursales()]);
+            cargarBanners();
             setInterval(verificarHorarioOperacion, 5000);
             setInterval(sincronizarConfiguracionHorario, 120000);
 
@@ -2114,6 +2173,7 @@
             await verificarCacheSesion();
 
             // Enlace "Ver mi pedido" de los correos: ?folio=FH-123
+            abrirProductoDesdeUrl();
             const folioUrl = new URLSearchParams(location.search).get("folio");
             if (folioUrl) {
                 verEsteFolio(folioUrl.trim().toUpperCase());
@@ -2165,6 +2225,7 @@
 
         async function cambiarSucursalGlobal() {
             sucursalSeleccionada = document.getElementById("globalSucursalSelector").value;
+            if (typeof cambiarTipoEntrega === "function") cambiarTipoEntrega();
             document.getElementById("sucursalCarritoBadge").innerText = `Comprando en: Sucursal ${nombreSucursal(sucursalSeleccionada)}`;
             carrito = {};
             cuponAplicado = null;
@@ -2400,6 +2461,134 @@
             filtrarCatalogoCompleto();
         }
 
+
+        /* ============================================================
+           RECOGER EN SUCURSAL
+           ============================================================ */
+        function tipoEntregaActual() {
+            const r = document.querySelector('input[name="tipoEntrega"]:checked');
+            return r ? r.value : "domicilio";
+        }
+        function cambiarTipoEntrega() {
+            const recoger = tipoEntregaActual() === "sucursal";
+            document.querySelectorAll(".entrega-op").forEach(l => l.classList.toggle("activa", l.querySelector("input").checked));
+            document.getElementById("grupoDomicilio").style.display = recoger ? "none" : "";
+            document.getElementById("checkoutUbic").style.display = recoger ? "none" : "";
+            const info = document.getElementById("infoRecoger");
+            info.style.display = recoger ? "block" : "none";
+            if (recoger) {
+                const s = datosSucursales[sucursalSeleccionada] || {};
+                const mapa = s.direccion ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("Mi Farmacia " + s.direccion)}` : "";
+                info.innerHTML = `🏪 Recoges en <b>Sucursal ${esc(nombreSucursal(sucursalSeleccionada))}</b>`
+                    + (s.direccion ? `<br>📍 ${esc(s.direccion)} · <a href="${mapa}" target="_blank" rel="noopener" style="color:#e2c48e;">Cómo llegar</a>` : "")
+                    + (s.telefono ? `<br>📞 ${esc(s.telefono)}` : "")
+                    + `<br>Te avisamos por correo cuando esté <b>listo para recoger</b>. Menciona tu folio en mostrador.`;
+            }
+        }
+
+        /* ============================================================
+           CARRUSEL DE BANNERS
+           ============================================================ */
+        let banners = [], bannerIdx = 0, bannerTimer = null;
+        async function cargarBanners() {
+            const cont = document.getElementById("bannerCarrusel");
+            if (!sb || !cont) return;
+            try {
+                const { data, error } = await sb.from("banners").select("id,titulo,subtitulo,imagen,enlace,boton,orden,activo,inicio,fin").order("orden");
+                if (error) throw error;
+                const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
+                banners = (data || []).filter(b => b.activo && (!b.inicio || b.inicio <= hoy) && (!b.fin || b.fin >= hoy) && (b.imagen || b.titulo));
+            } catch (e) { console.warn("[Banners]", e); banners = []; }
+            pintarBanners();
+        }
+        function pintarBanners() {
+            const cont = document.getElementById("bannerCarrusel");
+            clearInterval(bannerTimer);
+            if (!banners.length) { cont.style.display = "none"; cont.innerHTML = ""; return; }
+            cont.style.display = "block";
+            cont.innerHTML = banners.map((b, i) => {
+                const fondo = b.imagen ? `background-image:url('${String(b.imagen).replace(/'/g, "%27")}')` : "";
+                const texto = (b.titulo || b.subtitulo || b.boton) ? `<div class="banner-texto">
+                        ${b.titulo ? `<h3>${esc(b.titulo)}</h3>` : ""}${b.subtitulo ? `<p>${esc(b.subtitulo)}</p>` : ""}
+                        ${b.boton && b.enlace ? `<span class="btn-banner">${esc(b.boton)}</span>` : ""}</div>` : "";
+                return `<div class="banner-slide ${i === 0 ? "activa" : ""} ${b.imagen ? "" : "sin-imagen"} ${b.enlace ? "con-enlace" : ""}"
+                             style="${fondo}" data-i="${i}" role="group" aria-label="${esc(b.titulo || "Promoción")}">${texto}</div>`;
+            }).join("")
+            + (banners.length > 1 ? `<button class="banner-flecha izq" aria-label="Anterior" onclick="moverBanner(-1)">‹</button>
+                <button class="banner-flecha der" aria-label="Siguiente" onclick="moverBanner(1)">›</button>
+                <div class="banner-puntos">${banners.map((_, i) => `<button class="${i === 0 ? "activo" : ""}" aria-label="Banner ${i + 1}" onclick="irABanner(${i})"></button>`).join("")}</div>` : "");
+            cont.querySelectorAll(".banner-slide").forEach(sl => sl.onclick = () => abrirEnlaceBanner(banners[+sl.dataset.i]));
+            bannerIdx = 0;
+            if (banners.length > 1) {
+                bannerTimer = setInterval(() => moverBanner(1, true), 6000);
+                let x0 = null;
+                cont.ontouchstart = e => { x0 = e.touches[0].clientX; };
+                cont.ontouchend = e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) moverBanner(dx < 0 ? 1 : -1); x0 = null; };
+                cont.onmouseenter = () => clearInterval(bannerTimer);
+                cont.onmouseleave = () => { clearInterval(bannerTimer); bannerTimer = setInterval(() => moverBanner(1, true), 6000); };
+            }
+        }
+        function irABanner(i) {
+            const cont = document.getElementById("bannerCarrusel");
+            const slides = cont.querySelectorAll(".banner-slide"), puntos = cont.querySelectorAll(".banner-puntos button");
+            if (!slides.length) return;
+            bannerIdx = (i + slides.length) % slides.length;
+            slides.forEach((s, k) => s.classList.toggle("activa", k === bannerIdx));
+            puntos.forEach((p, k) => p.classList.toggle("activo", k === bannerIdx));
+        }
+        function moverBanner(d, auto) {
+            if (!auto) { clearInterval(bannerTimer); bannerTimer = setInterval(() => moverBanner(1, true), 6000); }
+            irABanner(bannerIdx + d);
+        }
+        function abrirEnlaceBanner(b) {
+            if (!b || !b.enlace) return;
+            const e = String(b.enlace).trim();
+            if (/^producto:/i.test(e)) {
+                const cod = e.replace(/^producto:/i, "").trim();
+                if (dbProductos.some(p => p.codigo === cod)) abrirQuickView(cod);
+                else showToast("Ese producto no está disponible en esta sucursal por ahora.", "warning");
+            } else if (/^buscar:/i.test(e)) {
+                const t = e.replace(/^buscar:/i, "").trim();
+                const inp = document.getElementById("txtBuscar");
+                inp.value = t;
+                paginaActual = 1;
+                filtrarCatalogoCompleto();
+                document.getElementById("catalogGrid").scrollIntoView({ behavior: "smooth", block: "start" });
+            } else if (/^https?:\/\//i.test(e)) {
+                if (/^https?:\/\/(www\.)?mifarmaciamx\.com/i.test(e)) location.href = e; else window.open(e, "_blank", "noopener");
+            }
+        }
+
+        /* ============================================================
+           ENLACE PROPIO DE CADA PRODUCTO (?p=CODIGO) Y COMPARTIR
+           ============================================================ */
+        let productoAbierto = null;
+        function enlaceProducto(codigo) {
+            return location.origin + location.pathname + "?p=" + encodeURIComponent(codigo);
+        }
+        function abrirProductoDesdeUrl() {
+            const cod = new URLSearchParams(location.search).get("p");
+            if (!cod) return;
+            if (dbProductos.some(p => p.codigo === cod)) abrirQuickView(cod);
+            else showToast("Ese producto no está disponible en esta sucursal. Prueba cambiando de sucursal.", "warning", 6000);
+        }
+        async function compartirProducto() {
+            const p = productoAbierto && dbProductos.find(x => x.codigo === productoAbierto);
+            if (!p) return;
+            const url = enlaceProducto(p.codigo);
+            const texto = `${p.nombre} · $${(Number(p.precio) || 0).toFixed(2)} en Mi Farmacia`;
+            if (navigator.share) {
+                try { await navigator.share({ title: p.nombre, text: texto, url }); return; } catch (e) { if (e && e.name === "AbortError") return; }
+            }
+            window.open("https://wa.me/?text=" + encodeURIComponent(texto + "\n" + url), "_blank", "noopener");
+        }
+        async function copiarEnlaceProducto() {
+            if (!productoAbierto) return;
+            const url = enlaceProducto(productoAbierto);
+            try { await navigator.clipboard.writeText(url); showToast("🔗 Enlace copiado. Pégalo en WhatsApp o Facebook.", "success"); }
+            catch (e) { prompt("Copia este enlace:", url); }
+        }
+
         function abrirQuickView(codigo) {
             const p = dbProductos.find(x => x.codigo === codigo);
             if(!p) return;
@@ -2428,10 +2617,14 @@
             };
 
             document.getElementById("modalQuickView").classList.add("active");
+            productoAbierto = p.codigo;
+            try { history.replaceState(null, "", "?p=" + encodeURIComponent(p.codigo)); } catch (e) {}
         }
 
         function cerrarQuickView() {
             document.getElementById("modalQuickView").classList.remove("active");
+            productoAbierto = null;
+            try { if (new URLSearchParams(location.search).get("p")) history.replaceState(null, "", location.pathname); } catch (e) {}
         }
 
         function meterAlCarrito(codigo, nombre, precio) {
@@ -2588,15 +2781,18 @@
             }
         }
 
-        function generarHtmlTimeline(estadoActual) {
+        function generarHtmlTimeline(estadoActual, esRecoger = false) {
             const estNorm = normalizarTexto(estadoActual || "");
 
             if (estNorm.includes("cancel")) {
                 return `<div style="margin-top:10px; padding:10px; border-radius:10px; background:rgba(239,68,68,0.12); color:var(--danger); font-weight:700; text-align:center;">❌ Pedido cancelado</div>`;
             }
 
+            const recoge = estNorm.includes("recoger") || !!esRecoger;
             let pasoNum = 1;
-            if (estNorm.includes("prepar") || estNorm.includes("proces")) {
+            if (estNorm.includes("recoger")) {
+                pasoNum = 3;
+            } else if (estNorm.includes("prepar") || estNorm.includes("proces")) {
                 pasoNum = 2;
             } else if (estNorm.includes("camin") || estNorm.includes("ruta") || estNorm.includes("despach")) {
                 pasoNum = 3;
@@ -2619,12 +2815,12 @@
                         <span>Preparación</span>
                     </div>
                     <div class="timeline-step ${pasoNum >= 3 ? (pasoNum === 3 ? 'active' : 'completed') : ''}">
-                        <div class="step-icon">🛵</div>
-                        <span>En Camino</span>
+                        <div class="step-icon">${recoge ? '🏪' : '🛵'}</div>
+                        <span>${recoge ? 'Listo para recoger' : 'En Camino'}</span>
                     </div>
                     <div class="timeline-step ${pasoNum >= 4 ? (pasoNum === 4 ? 'active' : 'completed') : ''}">
                         <div class="step-icon">✅</div>
-                        <span>Entregado</span>
+                        <span>${recoge ? 'Recogido' : 'Entregado'}</span>
                     </div>
                 </div>
             `;
@@ -2671,7 +2867,7 @@
                 if (error) throw error;
 
                 if(p) {
-                    const timelineHtml = generarHtmlTimeline(p.estado);
+                    const timelineHtml = generarHtmlTimeline(p.estado, /^Recoge en sucursal/i.test(p.domicilio || ""));
                     const receta = textoReceta(p.receta_estado);
                     pantalla.innerHTML = `
                         <div style="text-align:left; margin-top:12px; background:rgba(232, 220, 203, 0.75); padding:14px; border-radius:14px; border:var(--border-glow);">
@@ -2794,12 +2990,14 @@
 
         async function procesarOrdenCompraFinal(e) {
             const nom = document.getElementById("orderNombre").value.trim();
-            const dom = document.getElementById("orderDomicilio").value.trim();
+            const recoger = tipoEntregaActual() === "sucursal";
+            const dom = recoger ? "" : document.getElementById("orderDomicilio").value.trim();
             const pago = document.getElementById("orderMetodoPago").value;
             const inputReceta = document.getElementById("orderReceta");
 
             if(!sesionUsuario) { showToast("Inicia sesión para hacer tu pedido.", "warning"); return; }
-            if(!nom || !dom) { showToast("Completa los datos de despacho urgente.", "warning"); return; }
+            if(!nom) { showToast("Escribe el nombre del paciente.", "warning"); return; }
+            if(!recoger && !dom) { showToast("Escribe el domicilio de entrega o elige recoger en sucursal.", "warning"); return; }
             if(Object.keys(carrito).length === 0) { showToast("Tu carrito está vacío.", "warning"); return; }
 
             const necesitaReceta = Object.values(carrito).some(x => {
@@ -2832,7 +3030,8 @@
                     p_items: Object.values(carrito).map(x => ({ codigo: x.code, cantidad: x.qty })),
                     p_cupon: cuponAplicado ? cuponAplicado.codigo : null,
                     p_receta_path: rutaReceta,
-                    p_usar_monedero: !!usarMonedero
+                    p_usar_monedero: !!usarMonedero,
+                    p_recoger: recoger
                 });
 
                 if (error) {
@@ -2843,7 +3042,7 @@
                 }
 
                 showToast(`¡Pedido realizado con éxito!\nFOLIO: ${res.folio}\nSUCURSAL: ${nombreSucursal(res.sucursal)}`, "success", 6000);
-                if (ubicacionPedido) {
+                if (ubicacionPedido && !recoger) {
                     try {
                         const { error: eu } = await sb.rpc("fijar_ubicacion_pedido", { p_folio: res.folio, p_lat: ubicacionPedido.lat, p_lng: ubicacionPedido.lng });
                         if (eu) console.warn("[Ubicación]", eu.message);
@@ -2851,7 +3050,7 @@
                 }
 
                 document.getElementById("txtRastreoFolio").value = res.folio;
-                construirGraficoTicket(res, nom, dom);
+                construirGraficoTicket(res, nom, res.domicilio || dom);
 
                 carrito = {};
                 cuponAplicado = null;
