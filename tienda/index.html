@@ -1458,6 +1458,18 @@
         .qv-compartir{ display:flex; gap:8px; margin-top:12px; }
         .qv-compartir button{ flex:1; border:1px solid #d3c3ab; background:#fffaf2; color:var(--text-main); border-radius:12px; padding:9px; font-size:12.5px; font-weight:800; cursor:pointer; }
         .qv-compartir button:hover{ border-color:var(--primary); color:var(--primary); }
+
+        /* ---------- Contraseña ---------- */
+        .link-olvide{ display:block; text-align:center; font-size:12px; margin:-6px 0 12px; color:var(--primary-light); font-weight:700; text-decoration:none; }
+        .perfil-pass{ margin-top:14px; border:1px solid #d3c3ab; border-radius:14px; background:#fbf6ee; overflow:hidden; }
+        .perfil-pass summary{ cursor:pointer; padding:12px 14px; font-weight:800; font-size:13.5px; color:var(--text-main); list-style:none; display:flex; justify-content:space-between; }
+        .perfil-pass summary::-webkit-details-marker{ display:none; }
+        .perfil-pass summary::after{ content:"▾"; color:var(--text-muted); }
+        .perfil-pass[open] summary::after{ content:"▴"; }
+        .perfil-pass .cuerpo{ padding:0 14px 14px; }
+        .pass-ojo{ position:relative; }
+        .pass-ojo input{ padding-right:44px !important; }
+        .pass-ojo button{ position:absolute; right:8px; top:50%; transform:translateY(-50%); border:0; background:none; font-size:16px; cursor:pointer; opacity:.7; }
     </style>
 </head>
 <body>
@@ -1654,6 +1666,25 @@
                     <input type="text" id="txtPrefFavoritos" placeholder="PAR-001, AMX-002">
                 </div>
                 <button id="btnGuardarPerfil" class="btn btn-success full-width" style="margin-top:4px; justify-content:center;" onclick="guardarDatosPerfilServidor()">💾 Guardar Cambios</button>
+                <details class="perfil-pass" id="bloquePass">
+                    <summary>🔒 Cambiar contraseña</summary>
+                    <div class="cuerpo">
+                        <div class="input-group">
+                            <label>Contraseña actual</label>
+                            <div class="pass-ojo"><input type="password" id="passActual" autocomplete="current-password" placeholder="••••••••"><button type="button" onclick="verPass(this)" aria-label="Mostrar contraseña">👁️</button></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Contraseña nueva</label>
+                            <div class="pass-ojo"><input type="password" id="passNueva1" autocomplete="new-password" placeholder="Mínimo 6 caracteres"><button type="button" onclick="verPass(this)" aria-label="Mostrar contraseña">👁️</button></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Repite la contraseña nueva</label>
+                            <input type="password" id="passNueva2" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') cambiarContrasena()">
+                        </div>
+                        <button id="btnCambiarPass" class="btn full-width" style="justify-content:center;" onclick="cambiarContrasena()">Cambiar contraseña</button>
+                        <a href="#" class="link-olvide" style="margin:10px 0 0;" onclick="event.preventDefault(); cerrarModalPerfil(); recuperarDesdePerfil()">No recuerdo mi contraseña actual</a>
+                    </div>
+                </details>
                 <div id="bloqueMonedero"></div>
             </div>
         </div>
@@ -1843,6 +1874,7 @@
                     <label>Contraseña Secreta</label>
                     <input type="password" id="loginPass" placeholder="••••••••">
                 </div>
+                <a href="#" class="link-olvide" onclick="event.preventDefault(); mostrarRecuperacion()">¿Olvidaste tu contraseña?</a>
                 <button id="btnEjecutarIngreso" class="btn full-width" style="margin-bottom:14px; justify-content:center;" onclick="ejecutarIngresoBase()">Ingresar al Sistema</button>
                 <p style="font-size:12px; text-align:center; color:var(--text-muted);">¿Eres nuevo? <a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); conmutarAuthView(true)">Regístrate aquí</a></p>
             </div>
@@ -1862,6 +1894,36 @@
                 </div>
                 <button id="btnEjecutarRegistro" class="btn btn-success full-width" style="margin-bottom:14px; justify-content:center;" onclick="ejecutarRegistroBase()">Crear Mi Cuenta</button>
                 <p style="font-size:12px; text-align:center; color:var(--text-muted);">¿Ya tienes cuenta? <a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); conmutarAuthView(false)">Inicia sesión</a></p>
+            </div>
+
+            <!-- RECUPERAR CONTRASEÑA (código de 6 dígitos al correo) -->
+            <div id="recoverFields" style="display:none; margin-top: 10px;">
+                <div id="recPaso1">
+                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">Escribe el correo de tu cuenta y te mandamos un código de 6 dígitos para crear una contraseña nueva.</p>
+                    <div class="input-group">
+                        <label>Correo Electrónico</label>
+                        <input type="email" id="recEmail" placeholder="tucorreo@email.com" onkeydown="if(event.key==='Enter') enviarCodigoRecuperacion()">
+                    </div>
+                    <button id="btnEnviarRec" class="btn full-width" style="margin-bottom:14px; justify-content:center;" onclick="enviarCodigoRecuperacion()">Enviarme el código</button>
+                </div>
+                <div id="recPaso2" style="display:none;">
+                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">Enviamos un código a <b id="lblRecCorreo" style="color:var(--text-main);"></b>. Revisa también tu carpeta de spam.</p>
+                    <div class="input-group">
+                        <label>Código de 6 dígitos</label>
+                        <input type="text" id="recCodigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="letter-spacing:6px; text-align:center; font-size:20px; font-weight:800;">
+                    </div>
+                    <div class="input-group">
+                        <label>Contraseña nueva</label>
+                        <div class="pass-ojo"><input type="password" id="recPass1" placeholder="Mínimo 6 caracteres" autocomplete="new-password"><button type="button" onclick="verPass(this)" aria-label="Mostrar contraseña">👁️</button></div>
+                    </div>
+                    <div class="input-group">
+                        <label>Repite la contraseña nueva</label>
+                        <input type="password" id="recPass2" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter') confirmarRecuperacion()">
+                    </div>
+                    <button id="btnConfirmarRec" class="btn btn-success full-width" style="margin-bottom:14px; justify-content:center;" onclick="confirmarRecuperacion()">Cambiar contraseña y entrar</button>
+                    <p style="font-size:12px; text-align:center; color:var(--text-muted);">¿No te llegó? <a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); enviarCodigoRecuperacion(true)">Reenviar código</a></p>
+                </div>
+                <p style="font-size:12px; text-align:center; color:var(--text-muted);"><a href="#" style="color:var(--primary-light); font-weight:700; text-decoration:none;" onclick="event.preventDefault(); conmutarAuthView(false)">Volver a iniciar sesión</a></p>
             </div>
 
             <!-- VERIFICACIÓN DE CORREO (código de 6 dígitos) -->
@@ -1984,6 +2046,9 @@
 
         function traducirErrorAuth(msg) {
             const m = (msg || "").toLowerCase();
+            if (m.includes("should be different") || m.includes("same password")) return "La contraseña nueva debe ser distinta a la anterior.";
+            if (m.includes("weak") || m.includes("pwned")) return "Esa contraseña es muy fácil de adivinar. Usa una más segura.";
+            if (m.includes("reauthentication")) return "Por seguridad, cierra sesión y vuelve a entrar antes de cambiar tu contraseña.";
             if (m.includes("invalid login")) return "Correo o contraseña incorrectos.";
             if (m.includes("email not confirmed")) return "Tu correo aún no está verificado.";
             if (m.includes("already registered") || m.includes("already been registered")) return "Ese correo ya está registrado. Inicia sesión.";
@@ -3639,6 +3704,109 @@
             if (mostrarAviso) showToast("Has cerrado sesión exitosamente.", "info");
         }
 
+
+        /* ============================================================
+           CONTRASEÑA: cambiarla (con sesión) y recuperarla (sin sesión)
+           ============================================================ */
+        let correoRecuperacion = "";
+        function verPass(btn) {
+            const inp = btn.parentElement.querySelector("input");
+            inp.type = inp.type === "password" ? "text" : "password";
+            btn.innerText = inp.type === "password" ? "👁️" : "🙈";
+        }
+        function validarNueva(p1, p2) {
+            if (!p1 || p1.length < 6) return "La contraseña nueva debe tener al menos 6 caracteres.";
+            if (p1 !== p2) return "Las contraseñas nuevas no coinciden.";
+            return "";
+        }
+
+        async function cambiarContrasena() {
+            if (!sesionUsuario) return;
+            const actual = document.getElementById("passActual").value;
+            const p1 = document.getElementById("passNueva1").value, p2 = document.getElementById("passNueva2").value;
+            if (!actual) { showToast("Escribe tu contraseña actual.", "warning"); return; }
+            const err = validarNueva(p1, p2);
+            if (err) { showToast(err, "warning"); return; }
+            if (p1 === actual) { showToast("La contraseña nueva debe ser distinta a la actual.", "warning"); return; }
+            const btn = document.getElementById("btnCambiarPass");
+            btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> Guardando...`;
+            try {
+                // Confirmamos la contraseña actual antes de cambiarla
+                const { error: e1 } = await sb.auth.signInWithPassword({ email: sesionUsuario.correo, password: actual });
+                if (e1) throw new Error((e1.message || "").toLowerCase().includes("invalid login") ? "La contraseña actual no es correcta." : traducirErrorAuth(e1.message));
+                const { error: e2 } = await sb.auth.updateUser({ password: p1 });
+                if (e2) throw new Error(traducirErrorAuth(e2.message));
+                ["passActual", "passNueva1", "passNueva2"].forEach(id => document.getElementById(id).value = "");
+                document.getElementById("bloquePass").open = false;
+                showToast("🔒 Tu contraseña se cambió correctamente.", "success", 5000);
+            } catch (e) {
+                showToast(e.message || "No se pudo cambiar la contraseña.", "danger", 6000);
+            } finally {
+                btn.disabled = false; btn.innerText = "Cambiar contraseña";
+            }
+        }
+
+        function mostrarRecuperacion(correo) {
+            ["loginFields", "registerFields", "verifyFields"].forEach(id => document.getElementById(id).style.display = "none");
+            document.getElementById("recoverFields").style.display = "block";
+            document.getElementById("recPaso1").style.display = "block";
+            document.getElementById("recPaso2").style.display = "none";
+            document.getElementById("recEmail").value = correo || document.getElementById("loginEmail").value.trim();
+            ponerTituloAuth("🔑 Recuperar contraseña");
+            document.getElementById("modalAuth").style.display = "flex";
+            setTimeout(() => document.getElementById("recEmail").focus(), 50);
+        }
+        function recuperarDesdePerfil() {
+            const correo = sesionUsuario ? sesionUsuario.correo : "";
+            mostrarRecuperacion(correo);
+            if (correo) enviarCodigoRecuperacion();
+        }
+
+        async function enviarCodigoRecuperacion(reenvio) {
+            const em = (reenvio ? correoRecuperacion : document.getElementById("recEmail").value).trim().toLowerCase();
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { showToast("Escribe un correo válido.", "warning"); return; }
+            const btn = document.getElementById("btnEnviarRec");
+            btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> Enviando...`;
+            try {
+                const { error } = await sb.auth.resetPasswordForEmail(em);
+                if (error) throw new Error(traducirErrorAuth(error.message));
+                correoRecuperacion = em;
+                document.getElementById("lblRecCorreo").innerText = em;
+                document.getElementById("recPaso1").style.display = "none";
+                document.getElementById("recPaso2").style.display = "block";
+                ["recCodigo", "recPass1", "recPass2"].forEach(id => document.getElementById(id).value = "");
+                setTimeout(() => document.getElementById("recCodigo").focus(), 50);
+                showToast(reenvio ? "Código reenviado." : "Si el correo está registrado, te llegará un código en un momento.", "info", 6000);
+            } catch (e) {
+                showToast(e.message, "danger", 6000);
+            } finally {
+                btn.disabled = false; btn.innerText = "Enviarme el código";
+            }
+        }
+
+        async function confirmarRecuperacion() {
+            const codigo = document.getElementById("recCodigo").value.replace(/\D/g, "");
+            const p1 = document.getElementById("recPass1").value, p2 = document.getElementById("recPass2").value;
+            if (codigo.length < 6) { showToast("Escribe el código de 6 dígitos que llegó a tu correo.", "warning"); return; }
+            const err = validarNueva(p1, p2);
+            if (err) { showToast(err, "warning"); return; }
+            const btn = document.getElementById("btnConfirmarRec");
+            btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> Cambiando...`;
+            try {
+                const { data, error } = await sb.auth.verifyOtp({ email: correoRecuperacion, token: codigo, type: "recovery" });
+                if (error) throw new Error(traducirErrorAuth(error.message));
+                const { error: e2 } = await sb.auth.updateUser({ password: p1 });
+                if (e2) throw new Error(traducirErrorAuth(e2.message));
+                await cargarPerfilYEntrar(data.user);
+                cerrarModalAuth();
+                showToast("🔒 Listo, tu contraseña nueva quedó guardada. ¡Bienvenido " + sesionUsuario.nombre + "!", "success", 6000);
+            } catch (e) {
+                showToast(e.message || "No se pudo cambiar la contraseña.", "danger", 6000);
+            } finally {
+                btn.disabled = false; btn.innerText = "Cambiar contraseña y entrar";
+            }
+        }
+
         async function abrirModalAuth() {
             if(sesionUsuario) {
                 try { await sb.auth.signOut(); } catch(e) {}
@@ -3659,6 +3827,7 @@
             document.getElementById("loginFields").style.display = verRegistro ? "none" : "block";
             document.getElementById("registerFields").style.display = verRegistro ? "block" : "none";
             document.getElementById("verifyFields").style.display = "none";
+            document.getElementById("recoverFields").style.display = "none";
             ponerTituloAuth(verRegistro ? "📝 Registro de Paciente Nuevo" : "🔐 Autenticación de Paciente");
         }
 
@@ -3666,6 +3835,7 @@
             correoPendienteVerificacion = correo;
             document.getElementById("loginFields").style.display = "none";
             document.getElementById("registerFields").style.display = "none";
+            document.getElementById("recoverFields").style.display = "none";
             document.getElementById("verifyFields").style.display = "block";
             document.getElementById("lblCorreoVerificacion").innerText = correo;
             document.getElementById("verifyCodigo").value = "";
@@ -3688,7 +3858,9 @@
                 correo: user.email,
                 telefono: perfil ? perfil.telefono : "",
                 direccion: perfil ? perfil.direccion : "",
-                favoritos: perfil ? perfil.favoritos : ""
+                favoritos: perfil ? perfil.favoritos : "",
+                lat: perfil ? perfil.lat : null,
+                lng: perfil ? perfil.lng : null
             });
         }
 
