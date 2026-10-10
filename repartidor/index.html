@@ -114,9 +114,9 @@
   <!-- INICIO DE SESIÓN -->
   <section id="vistaLogin" class="card login" style="display:none">
     <h1>Hola 👋</h1>
-    <p>Entra con la cuenta que te dio la farmacia para ver tus entregas.</p>
-    <label for="txtCorreo">Correo</label>
-    <input id="txtCorreo" type="email" autocomplete="username" inputmode="email" placeholder="tucorreo@gmail.com">
+    <p>Entra con el usuario y la contraseña que te dio la farmacia.</p>
+    <label for="txtCorreo">Usuario</label>
+    <input id="txtCorreo" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="tu usuario">
     <label for="txtPass">Contraseña</label>
     <input id="txtPass" type="password" autocomplete="current-password" placeholder="••••••••">
     <button id="btnEntrar" class="btn" style="margin-top:18px" onclick="entrar()">Entrar</button>
@@ -187,12 +187,14 @@ async function cambiarDisponible(){
 }
 
 async function entrar(){
-  const correo = $('txtCorreo').value.trim(), pass = $('txtPass').value;
-  if (!correo || !pass) { $('errLogin').textContent = 'Escribe tu correo y contraseña.'; return; }
+  const usuario = $('txtCorreo').value.trim().toLowerCase(), pass = $('txtPass').value;
+  if (!usuario || !pass) { $('errLogin').textContent = 'Escribe tu usuario y contraseña.'; return; }
+  // Las cuentas del personal sin correo usan un correo interno: usuario@personal.mifarmaciamx.com
+  const correo = usuario.includes('@') ? usuario : usuario + '@personal.mifarmaciamx.com';
   const b = $('btnEntrar'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Entrando...'; $('errLogin').textContent = '';
   const { data, error } = await sb.auth.signInWithPassword({ email: correo, password: pass });
   b.disabled = false; b.textContent = 'Entrar';
-  if (error) { $('errLogin').textContent = /invalid/i.test(error.message) ? 'Correo o contraseña incorrectos.' : error.message; return; }
+  if (error) { $('errLogin').textContent = /invalid/i.test(error.message) ? 'Usuario o contraseña incorrectos.' : error.message; return; }
   await cargarStaff(data.user);
 }
 
