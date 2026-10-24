@@ -111,7 +111,7 @@
 </header>
 
 <main>
-  <!-- INICIO DE SESIÓN -->
+  
   <section id="vistaLogin" class="card login" style="display:none">
     <h1>Hola 👋</h1>
     <p>Entra con el usuario y la contraseña que te dio la farmacia.</p>
@@ -123,7 +123,7 @@
     <div id="errLogin" class="err"></div>
   </section>
 
-  <!-- ENTREGAS -->
+  
   <section id="vistaApp" style="display:none">
     <div id="avisoGps"></div>
     <div id="mapa"></div>
@@ -137,18 +137,15 @@
 <div id="toast" class="toast"></div>
 
 <script>
-/* =====================================================================
-   CONFIGURACIÓN (la misma llave pública de la tienda)
-   ===================================================================== */
-const SUPABASE_URL = 'https://ivhretmxcnslxvoruwiv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2aHJldG14Y25zbHh2b3J1d2l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDA2NTUsImV4cCI6MjEwNTA3NjY1NX0.nvbMsUgGHxvjySMywLYldA8ok_0oiOa6MvrUIxw18rg';
-// Sesión separada de la tienda (para que no se mezcle con una cuenta de cliente)
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+const SUPABASE_URL = 'https://mcqgvzaoaaqujledrxop.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jcWd2emFvYWFxdWpsZWRyeG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NDExODEsImV4cCI6MjEwODAxNzE4MX0.tHe7728Jb7xWXFEPcFAlnW1vdIZ7oF4AXUj9TTEjBBg';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: 'tienda' },
   auth: { storageKey: 'mf-repartidor-auth', persistSession: true, autoRefreshToken: true }
 });
 
-const ENVIO_CADA_MS = 8000;      // máximo una vez cada 8 s
-const ENVIO_MIN_METROS = 15;     // o antes si se movió más de esto
+const ENVIO_CADA_MS = 8000;
+const ENVIO_MIN_METROS = 15;
 let usuario = null, staff = null, pedidos = [];
 let watchId = null, ultimaPos = null, ultimoEnvio = { t: 0, lat: null, lng: null }, enviando = false;
 let wakeLock = null, canal = null, sondeo = null, idsConocidos = null;
@@ -162,14 +159,12 @@ function metros(a, b){ const R = 6371000, r = x => x * Math.PI / 180; const dLat
   const h = Math.sin(dLat/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2; return 2 * R * Math.asin(Math.sqrt(h)); }
 function soloDigitos(t){ return String(t || '').replace(/\D/g, ''); }
 
-/* ---------------- sesión ---------------- */
 async function iniciar(){
   const { data } = await sb.auth.getSession();
   if (data.session) await cargarStaff(data.session.user); else mostrarLogin();
 }
 function mostrarLogin(){ $('vistaLogin').style.display = 'block'; $('vistaApp').style.display = 'none'; $('btnSalir').style.display = 'none'; $('chipGps').style.display = 'none'; $('btnDisp').style.display = 'none'; }
 
-/* ---------------- disponible / en descanso ---------------- */
 function pintarDisponible(){
   const b = $('btnDisp'), on = !staff || staff.disponible !== false;
   b.style.display = 'inline-flex';
@@ -189,8 +184,8 @@ async function cambiarDisponible(){
 async function entrar(){
   const usuario = $('txtCorreo').value.trim().toLowerCase(), pass = $('txtPass').value;
   if (!usuario || !pass) { $('errLogin').textContent = 'Escribe tu usuario y contraseña.'; return; }
-  // Las cuentas del personal sin correo usan un correo interno: usuario@personal.mifarmaciamx.com
-  const correo = usuario.includes('@') ? usuario : usuario + '@personal.mifarmaciamx.com';
+
+  const correo = usuario.includes('@') ? usuario : usuario + '@pvifarma.local';
   const b = $('btnEntrar'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Entrando...'; $('errLogin').textContent = '';
   const { data, error } = await sb.auth.signInWithPassword({ email: correo, password: pass });
   b.disabled = false; b.textContent = 'Entrar';
@@ -219,11 +214,10 @@ async function salir(){
   await sb.auth.signOut(); usuario = staff = null; pedidos = []; idsConocidos = null; mostrarLogin();
 }
 
-/* ---------------- pedidos ---------------- */
 function suscribir(){
   if (canal) sb.removeChannel(canal);
   canal = sb.channel('reparto-' + usuario.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'repartidor_id=eq.' + usuario.id }, () => cargarPedidos())
+    .on('postgres_changes', { event: '*', schema: 'tienda', table: 'pedidos', filter: 'repartidor_id=eq.' + usuario.id }, () => cargarPedidos())
     .subscribe();
 }
 
@@ -311,7 +305,6 @@ async function cambiarEstado(id, estado, btn){
   if (estado === 'En camino') enviarUbicacion(true);
 }
 
-/* ---------------- GPS ---------------- */
 function pedirPermisoGps(){
   return new Promise(res => {
     if (!navigator.geolocation) return res(false);
@@ -368,7 +361,7 @@ async function enviarUbicacion(forzar){
     estadoGps('warn', 'Sin señal…');
   } finally { enviando = false; }
 }
-// Por si el celular no reporta movimiento (parado en un semáforo), reenvía cada 20 s
+
 setInterval(() => { if (watchId !== null && Date.now() - ultimoEnvio.t > 20000) enviarUbicacion(true); }, 5000);
 
 async function pedirWakeLock(){
@@ -379,7 +372,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && usuario) { cargarPedidos(); if (watchId !== null) { pedirWakeLock(); enviarUbicacion(true); } }
 });
 
-/* ---------------- mapa ---------------- */
 function crearMapa(){
   if (mapa || !window.L) return;
   mapa = L.map('mapa', { zoomControl: false, attributionControl: true });
