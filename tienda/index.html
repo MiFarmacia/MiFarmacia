@@ -1280,6 +1280,8 @@
         .logo-mf{ height:30px; width:auto; display:block; }
         .logo-sep{ width:1px; height:26px; background:rgba(255,240,220,.35); }
         .logo-circulo{ height:40px; width:auto; display:block; }
+        .mayoreo-tag{ display:inline-block; margin-top:6px; padding:3px 8px; border-radius:8px; font-size:11px; font-weight:700; color:var(--primary); background:var(--primary-glow); }
+        .mayoreo-nota{ display:block; font-size:11px; color:var(--primary); font-weight:600; margin-top:2px; }
         .header-center{ background: rgba(30, 18, 10, 0.35); border-color: rgba(255, 240, 220, 0.3); }
         .header-center select{ color: #bfe3c9; }
         .header-center select option{ color:#2a1f17; }
@@ -1929,6 +1931,7 @@
     <a id="btnWhatsApp" class="whatsapp-float" href="https://wa.me/525572400294?text=Hola%2C%20tengo%20una%20duda%20sobre%20mi%20pedido%20en%20MiFarmacia" target="_blank" rel="noopener" title="Chatea con soporte">💬</a>
 
     <script>
+        const MARCA = "MI_FARMACIA";
         const SUPABASE_URL = 'https://mcqgvzaoaaqujledrxop.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jcWd2emFvYWFxdWpsZWRyeG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NDExODEsImV4cCI6MjEwODAxNzE4MX0.tHe7728Jb7xWXFEPcFAlnW1vdIZ7oF4AXUj9TTEjBBg';
 
@@ -2012,7 +2015,7 @@
         async function sincronizarConfiguracionHorario() {
             if (!sb) return;
             try {
-                const { data, error } = await sb.from("configuracion").select("*").eq("id", 1).maybeSingle();
+                const { data, error } = await sb.from("configuracion").select("*").eq("marca", MARCA).maybeSingle();
                 if (error) throw error;
                 if (data) {
                     configuracionHorarios = {
@@ -2151,9 +2154,13 @@
         async function cargarSucursales() {
             if (!sb) return;
             try {
-                const { data, error } = await sb.from("sucursales").select("id,nombre,direccion,telefono").eq("activa", true).order("orden");
+                const { data, error } = await sb.from("sucursales").select("id,nombre,direccion,telefono").eq("marca", MARCA).eq("activa", true).order("orden");
                 if (error) throw error;
-                if (!data || !data.length) return;
+                if (!data || !data.length) {
+                    document.getElementById("globalSucursalSelector").innerHTML = "";
+                    sucursalSeleccionada = "";
+                    return;
+                }
                 const sel = document.getElementById("globalSucursalSelector");
                 const actual = sel.value;
                 nombresSucursal = {};
@@ -2254,7 +2261,7 @@
                 let desde = 0, todos = [];
                 while (true) {
                     const { data, error } = await sb.from("v_catalogo")
-                        .select("codigo,nombre,descripcion,categoria,imagen,precio,precio_anterior,promocion,requiere_receta,stock")
+                        .select("codigo,nombre,descripcion,categoria,imagen,precio,precio_anterior,promocion,requiere_receta,stock,precio_mayoreo,cantidad_mayoreo")
                         .eq("sucursal", sucursalSeleccionada)
                         .order("nombre", { ascending: true })
                         .range(desde, desde + paso - 1);
@@ -2331,6 +2338,7 @@
                             <span style="font-size:10px; color:var(--primary-light); font-family:monospace; display:block; margin-bottom:4px; font-weight:700;">COD: ${esc(p.codigo || '-')}${p.requiere_receta ? ' · 📄 Requiere receta' : ''}</span>
                             <h3 onclick="abrirQuickView('${cod}')" style="cursor:pointer;">${esc(p.nombre || 'Sin nombre')}</h3>
                             <p>${esc(p.descripcion || '-')}</p>
+                            ${etiquetaMayoreo(p)}
                         </div>
                         <div class="card-footer">
                             <span class="price">$${pPrecio.toFixed(2)}</span>
@@ -2498,7 +2506,7 @@
             const cont = document.getElementById("bannerCarrusel");
             if (!sb || !cont) return;
             try {
-                const { data, error } = await sb.from("banners").select("id,titulo,subtitulo,imagen,enlace,boton,orden,activo,inicio,fin").order("orden");
+                const { data, error } = await sb.from("banners").select("id,titulo,subtitulo,imagen,enlace,boton,orden,activo,inicio,fin").eq("marca", MARCA).order("orden");
                 if (error) throw error;
                 const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
                 banners = (data || []).filter(b => b.activo && (!b.inicio || b.inicio <= hoy) && (!b.fin || b.fin >= hoy) && (b.imagen || b.titulo));
@@ -2604,7 +2612,7 @@
             document.getElementById("qvCodigo").innerText = `CÓDIGO: ${p.codigo || '-'}`;
             document.getElementById("qvCategoria").innerText = (p.categoria || 'General') + (p.requiere_receta ? ' · Requiere receta' : '');
             document.getElementById("qvDescripcion").innerText = p.descripcion || 'Sin descripción detallada disponible.';
-            document.getElementById("qvPrecio").innerText = `$${pPrecio.toFixed(2)}`;
+            document.getElementById("qvPrecio").innerHTML = `$${pPrecio.toFixed(2)}${etiquetaMayoreo(p) ? "<br>" + etiquetaMayoreo(p) : ""}`;
 
             const qvStock = document.getElementById("qvStock");
             qvStock.innerText = stockVal >= 99 ? "Disponible" : `Stock: ${stockVal}`;
@@ -2667,8 +2675,24 @@
             aplicarEfectoRebote();
         }
 
+        function mayoreoDe(codigo) {
+            const p = dbProductos.find(x => x.codigo === codigo);
+            if (!p || !(Number(p.precio_mayoreo) > 0) || !(Number(p.cantidad_mayoreo) > 1)) return null;
+            return { precio: Number(p.precio_mayoreo), desde: Number(p.cantidad_mayoreo) };
+        }
+
+        function precioItem(x) {
+            const m = mayoreoDe(x.code);
+            return m && x.qty >= m.desde ? m.precio : x.price;
+        }
+
+        function etiquetaMayoreo(p) {
+            if (!(Number(p.precio_mayoreo) > 0) || !(Number(p.cantidad_mayoreo) > 1)) return "";
+            return `<span class="mayoreo-tag">Mayoreo: $${Number(p.precio_mayoreo).toFixed(2)} c/u desde ${Number(p.cantidad_mayoreo)} pzas</span>`;
+        }
+
         function subtotalCarrito() {
-            return Object.values(carrito).reduce((a, b) => a + (b.price * b.qty), 0);
+            return Object.values(carrito).reduce((a, b) => a + (precioItem(b) * b.qty), 0);
         }
 
         async function aplicarCuponDescuento() {
@@ -2681,7 +2705,7 @@
             }
 
             try {
-                const { data, error } = await sb.rpc("validar_cupon", { p_codigo: codigoInput, p_subtotal: subtotalCarrito() || null });
+                const { data, error } = await sb.rpc("validar_cupon", { p_codigo: codigoInput, p_subtotal: subtotalCarrito() || null, p_marca: MARCA });
                 if (error) throw error;
 
                 if(!data || !data.valido) {
@@ -2713,13 +2737,16 @@
             let itemCount = 0;
 
             container.innerHTML = Object.values(carrito).map(p => {
-                subtotal += p.price * p.qty;
+                const unit = precioItem(p);
+                const may = mayoreoDe(p.code);
+                subtotal += unit * p.qty;
                 itemCount += p.qty;
                 return `
                     <div class="cart-item">
                         <div class="cart-item-info">
                             <h4>${esc(p.name)}</h4>
-                            <span>$${p.price.toFixed(2)} x ${p.qty}</span>
+                            <span>$${unit.toFixed(2)} x ${p.qty}</span>
+                            ${may ? `<small class="mayoreo-nota">${p.qty >= may.desde ? "✔ Precio de mayoreo aplicado" : `Lleva ${may.desde} o más y pagas $${may.precio.toFixed(2)} c/u`}</small>` : ""}
                         </div>
                         <div class="cart-item-controls">
                             <button class="btn" style="background:var(--bg-input); color:var(--text-main); border:var(--border-glow); box-shadow:none;" onclick="modificarCantidadCarrito('${jsStr(p.code)}', -1)">−</button>
@@ -2934,6 +2961,7 @@
                 const { data: propios, error } = await sb.from("pedidos")
                     .select("folio,estado,productos,total,sucursal_id,created_at,pedido_detalle(codigo,nombre,precio,cantidad)")
                     .eq("cliente_id", sesionUsuario.id)
+                    .eq("marca", MARCA)
                     .order("created_at", { ascending: false })
                     .limit(50);
                 if (error) throw error;
@@ -3119,7 +3147,7 @@
         const dinero = n => "$" + Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         async function cargarMonedero() {
-            if (!sesionUsuario || !sb) { monederoInfo = null; renderMonedero(); return; }
+            if (!sesionUsuario || !sb || MARCA !== "MI_FARMACIA") { monederoInfo = null; renderMonedero(); return; }
             try {
                 const { data, error } = await sb.rpc("mi_monedero", {});
                 if (error) throw error;
@@ -3142,7 +3170,7 @@
 
             const base = Object.values(carrito).reduce((a, x) => {
                 const p = dbProductos.find(d => d.codigo === x.code);
-                return a + ((p && p.requiere_receta) ? 0 : x.price * x.qty);
+                return a + ((p && p.requiere_receta) ? 0 : precioItem(x) * x.qty);
             }, 0);
             const pct = Number(monederoInfo.pct || 0);
 
@@ -3430,7 +3458,7 @@
             try {
 
                 if (sesionUsuario) {
-                    const { error } = await sb.from("clientes").update({ lat, lng }).eq("id", sesionUsuario.id);
+                    const { error } = await sb.from("clientes").update({ lat, lng }).eq("id", sesionUsuario.id).eq("marca", MARCA);
                     if (error) throw error;
                     sesionUsuario.lat = lat; sesionUsuario.lng = lng;
                 }
@@ -3561,7 +3589,8 @@
             try {
                 const { error } = await sb.from("clientes")
                     .update({ telefono: tel, direccion: dir, favoritos: fav })
-                    .eq("id", sesionUsuario.id);
+                    .eq("id", sesionUsuario.id)
+                    .eq("marca", MARCA);
                 if (error) throw error;
 
                 if(!silente) showToast("Perfil actualizado correctamente.", "success");
@@ -3679,7 +3708,7 @@
             const btn = document.getElementById("btnEnviarRec");
             btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> Enviando...`;
             try {
-                const { error } = await sb.auth.resetPasswordForEmail(em);
+                const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + "/tienda/" });
                 if (error) throw new Error(traducirErrorAuth(error.message));
                 correoRecuperacion = em;
                 document.getElementById("lblRecCorreo").innerText = em;
@@ -3758,8 +3787,8 @@
         async function cargarPerfilYEntrar(user) {
             let perfil = null;
             try {
-                const { data } = await sb.from("clientes").select("*").eq("id", user.id).maybeSingle();
-                perfil = data;
+                const { data } = await sb.rpc("mi_perfil", { p_marca: MARCA });
+                perfil = data && data.id ? data : null;
             } catch(e) { console.warn(e); }
 
             const meta = user.user_metadata || {};
@@ -3790,7 +3819,7 @@
 
                 if(error) {
                     if ((error.message || "").toLowerCase().includes("email not confirmed")) {
-                        await sb.auth.resend({ type: "signup", email: em });
+                        await sb.auth.resend({ type: "signup", email: em, options: { emailRedirectTo: location.origin + "/tienda/" } });
                         showToast("Tu correo aún no está verificado. Te enviamos un código nuevo.", "warning", 6000);
                         mostrarVerificacion(em);
                     } else {
@@ -3828,7 +3857,7 @@
                 const { data, error } = await sb.auth.signUp({
                     email: em,
                     password: pas,
-                    options: { data: { nombre: nom } }
+                    options: { data: { nombre: nom, marca: MARCA }, emailRedirectTo: location.origin + "/tienda/" }
                 });
                 if(error) throw new Error(traducirErrorAuth(error.message));
 
@@ -3878,7 +3907,7 @@
 
         async function reenviarCodigoVerificacion() {
             if (!correoPendienteVerificacion) return;
-            const { error } = await sb.auth.resend({ type: "signup", email: correoPendienteVerificacion });
+            const { error } = await sb.auth.resend({ type: "signup", email: correoPendienteVerificacion, options: { emailRedirectTo: location.origin + "/tienda/" } });
             if (error) showToast(traducirErrorAuth(error.message), "danger");
             else showToast("Código reenviado. Revisa también tu carpeta de spam.", "success");
         }
